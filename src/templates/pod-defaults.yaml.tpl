@@ -17,8 +17,8 @@ spec:
     {% if env_var.secret %}
     valueFrom:
       secretKeyRef:
-	name: {{ env_var.secret.secret_name }}
-	key: {{ env_var.secret.secret_key }}
-	optional: {{ env_var.secret.optional }}
+        name: {{ env_var.secret.secret_name }}
+        key: {{ env_var.secret.secret_key }}
+        optional: {{ env_var.secret.optional | tojson }}
     {% endif %}
   {% endfor%}
