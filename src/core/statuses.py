@@ -17,7 +17,7 @@ class CharmStatuses(Enum):
 
     @staticmethod
     def missing_integration_with_opensearch() -> StatusObject:
-        """Integration with Opensearch is required"""
+        """Integration with Opensearch is required."""
         return StatusObject(
             status="blocked",
             message="Charm waiting to be integrated with OpenSearch Charm",

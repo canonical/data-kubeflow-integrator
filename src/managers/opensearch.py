@@ -5,13 +5,14 @@
 """Manager for opensearch related tasks."""
 
 from charms.data_platform_libs.v0.data_interfaces import OpenSearchRequires
-from core.config import OpenSearchConfig
-from core.state import GlobalState
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from data_platform_helpers.advanced_statuses.types import Scope
-from core.statuses import CharmStatuses, ConfigStatuses
 from pydantic import ValidationError
+
+from core.config import OpenSearchConfig
+from core.state import GlobalState
+from core.statuses import CharmStatuses, ConfigStatuses
 from utils.k8s_models import ReconciledManifests
 from utils.logging import WithLogging
 
@@ -35,7 +36,7 @@ class OpenSearchManager(ManagerStatusProtocol, WithLogging):
                 self.opensearch_requirer.update_relation_data(rel.id, relation_data)
 
     def generate_manifests(self) -> ReconciledManifests:
-        """Generate kubernetes manifesets for the current credentials"""
+        """Generate kubernetes manifesets for the current credentials."""
         if self.is_opensearch_related and self.index_active:
             # Fetch credentials
             opensearch_creds = list(self.opensearch_requirer.fetch_relation_data().values())[0]
@@ -77,22 +78,23 @@ class OpenSearchManager(ManagerStatusProtocol, WithLogging):
 
     @property
     def opensearch_requirer(self) -> OpenSearchRequires:
-        """Return the opensearchRequires instance from event handlers"""
+        """Return the opensearchRequires instance from event handlers."""
         return self.state.charm.general_events.opensearch
 
     @property
     def index_active(self) -> str | None:
-        """Return the created and configured opensearch index"""
+        """Return the created and configured opensearch index."""
         if (
             relation := self.opensearch_requirer.relations[0]
             if len(self.opensearch_requirer.relations)
             else None
         ):
             return self.opensearch_requirer.fetch_relation_field(relation.id, "index")
+        return None
 
     @property
     def is_opensearch_related(self) -> bool:
-        """Check if we have a relation with OpenSearch"""
+        """Check if we have a relation with OpenSearch."""
         for relation in self.opensearch_requirer.relations:
             data = self.opensearch_requirer.fetch_relation_data(
                 [relation.id], ["username", "password"]

@@ -10,9 +10,9 @@ from __future__ import annotations
 import re
 from typing import Annotated
 
-from charms.data_platform_libs.v0.data_models import BaseConfigModel
 from charms.data_platform_libs.v0.data_interfaces import KafkaRequires
-from pydantic import BeforeValidator, Field, AfterValidator
+from charms.data_platform_libs.v0.data_models import BaseConfigModel
+from pydantic import AfterValidator, BeforeValidator, Field
 
 PROFILE_REGEX = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 
@@ -40,9 +40,7 @@ class ProfileConfig(BaseConfigModel):
     """Model for the 'profile' configuration."""
 
     # Validate profile with k8s namespace regex following rfc1123
-    profile: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
-        pattern=PROFILE_REGEX
-    )
+    profile: str = Field(pattern=PROFILE_REGEX)
 
 
 class OpenSearchConfig(BaseConfigModel):

@@ -7,19 +7,19 @@
 
 from typing import TYPE_CHECKING
 
-from core.config import OpenSearchConfig
-from data_platform_helpers.advanced_statuses.protocol import StatusesState, StatusesStateProtocol
 from charms.data_platform_libs.v0.data_interfaces import (
     DataPeerData,
     DataPeerUnitData,
 )
+from data_platform_helpers.advanced_statuses.protocol import StatusesState, StatusesStateProtocol
 from ops import Object, Relation
+
 from constants import (
-    STATUS_PEERS_RELATION_NAME,
     PEER_RELATION,
+    STATUS_PEERS_RELATION_NAME,
 )
-from utils.logging import WithLogging
 from core.config import OpenSearchConfig, ProfileConfig
+from utils.logging import WithLogging
 
 if TYPE_CHECKING:
     from charm import KubeflowIntegratorCharm

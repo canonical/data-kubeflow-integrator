@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+# Copyright 2025 Ubuntu
+# See LICENSE file for licensing details.
+
+"""Charm constants."""
+
 OPENSEARCH = "opensearch"
 STATUS_PEERS_RELATION_NAME = "status-peers"
 SECRETS_DISPATCHER_RELATION_NAME = "secrets"

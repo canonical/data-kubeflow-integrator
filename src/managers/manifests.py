@@ -5,14 +5,27 @@
 """Manager for kubernetes manifests generation tasks."""
 
 import os
-from charms.resource_dispatcher.v0.kubernetes_manifests import KubernetesManifest
-from core.config import ProfileConfig
-from core.state import GlobalState
+
+from charms.resource_dispatcher.v0.kubernetes_manifests import (
+    KubernetesManifest,  # type: ignore[import-untyped]
+)
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from data_platform_helpers.advanced_statuses.types import Scope
-from core.statuses import CharmStatuses, ConfigStatuses
+from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import ValidationError
+
+from constants import (
+    K8S_OPENSEARCH_PODDEFAULT_DESC,
+    K8S_OPENSEARCH_PODDEFAULT_NAME,
+    K8S_OPENSEARCH_PODDEFAULT_SELECTOR_LABEL,
+    K8S_OPENSEARCH_SECRET_NAME,
+    POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+    SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
+)
+from core.config import ProfileConfig
+from core.state import GlobalState
+from core.statuses import CharmStatuses, ConfigStatuses
 from utils.k8s_models import (
     EnvVarFromSecret,
     K8sPodDefaultManifestInfo,
@@ -21,16 +34,6 @@ from utils.k8s_models import (
     ReconciledManifests,
 )
 from utils.logging import WithLogging
-from constants import (
-    K8S_OPENSEARCH_PODDEFAULT_DESC,
-    K8S_OPENSEARCH_PODDEFAULT_NAME,
-    K8S_OPENSEARCH_PODDEFAULT_SELECTOR_LABEL,
-    K8S_OPENSEARCH_SECRET_NAME,
-    POD_DEFAULTS_DISPATCHER_RELATION_NAME,
-    SECRETS_DISPATCHER_RELATION_NAME,
-    SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
-)
-from jinja2 import Environment, FileSystemLoader, Template
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.dirname(CURRENT_DIR)
@@ -51,10 +54,14 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
         )
 
     def reconcile_opensearch_manifests(self, creds: dict[str, str]) -> ReconciledManifests:
-        """Generate opensearch manifests using credentials and send to resource-dispatcher"""
-        secrets_manifests = []
-        poddefaults_manifests = []
-        service_accounts_manifests = []
+        """Generate opensearch manifests using credentials and send to resource-dispatcher."""
+        if not self.state.profile_config:
+            self.logger.warning("No specified profile, skipping manifests generation")
+            return ReconciledManifests()
+
+        secrets_manifests: list[KubernetesManifest] = []
+        poddefaults_manifests: list[KubernetesManifest] = []
+        service_accounts_manifests: list[KubernetesManifest] = []
 
         # remove data field from the credentials dict
         if "data" in creds:
@@ -68,6 +75,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 name=K8S_OPENSEARCH_SECRET_NAME,
                 namespace=self.state.profile_config.profile,
                 data=creds,
+                labels=None,
             )
             # generate using jinja
             rendered = self.secret_k8s_template.render(secret=k8s_secret_info)
@@ -96,7 +104,6 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 env_vars=poddefault_env_vars,
             )
             rendered = self.poddefault_k8s_template.render(pod_default=k8s_poddefault_info)
-            print(rendered)
             poddefaults_manifests.append(KubernetesManifest(rendered))
 
         return ReconciledManifests(
@@ -106,7 +113,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
         )
 
     def send_manifests(self, reconciled_manifests: ReconciledManifests):
-        """Send k8s manifests to the manifests provider"""
+        """Send k8s manifests to the manifests provider."""
         if len(reconciled_manifests.secrets):
             self.manifests_secret_wrapper.send_data(reconciled_manifests.secrets)
         if len(reconciled_manifests.poddefaults):
@@ -137,22 +144,22 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
     @property
     def manifests_secret_wrapper(self):
-        """Return the Manifests Secret Wrapper"""
+        """Return the Manifests Secret Wrapper."""
         return self.state.charm.general_events.secrets_manifests_wrapper
 
     @property
     def manifests_poddefault_wrapper(self):
-        """Return the Manifests PodDefault Wrapper"""
+        """Return the Manifests PodDefault Wrapper."""
         return self.state.charm.general_events.pod_defaults_manifests_wrapper
 
     @property
     def manifests_service_account_wrapper(self):
-        """Retuyrn the Manifests Service Account Wrapper"""
+        """Retuyrn the Manifests Service Account Wrapper."""
         return self.state.charm.general_events.service_accounts_manifests_wrapper
 
     @property
     def is_manifests_provider_related(self):
-        """Is the charm related to any manifests relation provider"""
+        """Is the charm related to any manifests relation provider."""
         return any(
             [
                 self.is_k8s_poddefaults_manifests_related,
@@ -163,29 +170,29 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
     @property
     def is_k8s_secrets_manifests_related(self) -> bool:
-        """Is the charm related to a secrets manifests relation"""
-        return bool(len(self.state.charm.model.relations.get(SECRETS_DISPATCHER_RELATION_NAME)))
-
-    @property
-    def is_k8s_poddefaults_manifests_related(self) -> bool:
-        """Is the charm related to a secrets manifests relation"""
+        """Is the charm related to a secrets manifests relation."""
         return bool(
-            len(self.state.charm.model.relations.get(POD_DEFAULTS_DISPATCHER_RELATION_NAME))
+            self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME)
         )
 
     @property
+    def is_k8s_poddefaults_manifests_related(self) -> bool:
+        """Is the charm related to a secrets manifests relation."""
+        return bool(self.state.charm.model.relations.get(POD_DEFAULTS_DISPATCHER_RELATION_NAME))
+
+    @property
     def is_k8s_service_accounts_manifests_related(self) -> bool:
-        """Is the charm related to a secrets manifests relation"""
+        """Is the charm related to a secrets manifests relation."""
         return bool(
-            len(self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME))
+            self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME)
         )
 
     @property
     def secret_k8s_template(self) -> Template:
-        """Return template for generating kubernetes secrets"""
+        """Return template for generating kubernetes secrets."""
         return self.env.get_template("secret.yaml.tpl")
 
     @property
     def poddefault_k8s_template(self) -> Template:
-        """Return template for generating kubernetes pod defaults"""
+        """Return template for generating kubernetes pod defaults."""
         return self.env.get_template("pod-defaults.yaml.tpl")

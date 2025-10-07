@@ -7,33 +7,31 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from managers.manifests import ReconciledManifests
-import ops
-from ops.charm import ConfigChangedEvent
-from ops import Object
 
-from utils.logging import WithLogging
+import ops
+from charms.data_platform_libs.v0.data_interfaces import (
+    IndexCreatedEvent,
+    IndexEntityCreatedEvent,
+    OpenSearchRequires,
+)
+from charms.resource_dispatcher.v0.kubernetes_manifests import (
+    KubernetesManifestRequirerWrapper,  # type: ignore
+)
+from ops import (
+    Object,
+    RelationBrokenEvent,
+)
+from ops.charm import ConfigChangedEvent
 
 from constants import (
     OPENSEARCH,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
-    OPENSEARCH,
-    SECRETS_DISPATCHER_RELATION_NAME,
-    SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
-    POD_DEFAULTS_DISPATCHER_RELATION_NAME,
-)
-from charms.resource_dispatcher.v0.kubernetes_manifests import KubernetesManifestRequirerWrapper
-from charms.data_platform_libs.v0.data_interfaces import (
-    IndexCreatedEvent,
-    IndexEntityCreatedEvent,
-    OpenSearchRequires,
-)
-from ops import (
-    RelationBrokenEvent,
 )
 from core.state import GlobalState
+from managers.manifests import ReconciledManifests
+from utils.logging import WithLogging
 
 if TYPE_CHECKING:
     from charm import KubeflowIntegratorCharm
@@ -90,7 +88,7 @@ class GeneralEventsHandler(Object, WithLogging):
         )
 
     def _on_manifests_relation_change(self, _):
-        """Event handler for when any of the manifests relations change"""
+        """Event handler for when any of the manifests relations change."""
         reconciled_manifests = ReconciledManifests()
         if self.charm.manifests_manager.is_manifests_provider_related:
             # Reconcile opensearch manifests

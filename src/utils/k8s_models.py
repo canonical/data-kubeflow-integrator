@@ -1,5 +1,14 @@
+#!/usr/bin/env python3
+# Copyright 2025 Ubuntu
+# See LICENSE file for licensing details.
+
+"""A set of structured models used to generate kubernetes manifests."""
+
 from dataclasses import dataclass, field
-from charms.resource_dispatcher.v0.kubernetes_manifests import KubernetesManifest
+
+from charms.resource_dispatcher.v0.kubernetes_manifests import (
+    KubernetesManifest,  # type: ignore[import-untyped]
+)
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -13,7 +22,7 @@ class K8sSecretManifestInfo(BaseModel):
 
 
 class EnvVarFromSecret(BaseModel):
-    """Structured model for environment variable from secret in poddefault"""
+    """Structured model for environment variable from secret in poddefault."""
 
     secret_name: str
     secret_key: str
@@ -21,7 +30,7 @@ class EnvVarFromSecret(BaseModel):
 
 
 class PodDefaultEnvVar(BaseModel):
-    """Structured model for environment variable definitions in poddefault"""
+    """Structured model for environment variable definitions in poddefault."""
 
     name: str
     value: str | None = None
@@ -29,13 +38,14 @@ class PodDefaultEnvVar(BaseModel):
 
     @model_validator(mode="after")
     def check_on_of(self):
+        """Validate that either the `value` field or `secret` field is specified."""
         if not (self.value or self.secret):
             raise ValueError("Either 'value' or 'secret' must be provided")
         return self
 
 
 class K8sPodDefaultManifestInfo(BaseModel):
-    """Structured model used to group info regarding a pod defautl, to be used to generate k8s poddefault manifest."""
+    """Structured model used to group info regarding a pod default, to be used to generate k8s poddefault manifest."""
 
     name: str
     namespace: str
@@ -46,11 +56,14 @@ class K8sPodDefaultManifestInfo(BaseModel):
 
 @dataclass
 class ReconciledManifests:
+    """Structured model used to group the generated secrets and send them to the provider."""
+
     secrets: list[KubernetesManifest] = field(default_factory=list)
     poddefaults: list[KubernetesManifest] = field(default_factory=list)
     serviceaccounts: list[KubernetesManifest] = field(default_factory=list)
 
     def __add__(self, other: "ReconciledManifests") -> "ReconciledManifests":
+        """Implements the add interface."""
         if not isinstance(other, ReconciledManifests):
             return NotImplemented
 
@@ -61,6 +74,7 @@ class ReconciledManifests:
         )
 
     def __iadd__(self, other: "ReconciledManifests") -> "ReconciledManifests":
+        """Implement the add in-place."""
         if not isinstance(other, ReconciledManifests):
             return NotImplemented
 

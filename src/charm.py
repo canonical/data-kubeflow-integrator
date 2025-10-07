@@ -5,13 +5,14 @@
 """Charm the application."""
 
 import logging
-from data_platform_helpers.advanced_statuses.handler import StatusHandler
+
 import ops
+from data_platform_helpers.advanced_statuses.handler import StatusHandler
+
 from core.state import GlobalState
 from events.general import GeneralEventsHandler
-from managers.opensearch import OpenSearchManager
 from managers.manifests import KubernetesManifestsManager
-
+from managers.opensearch import OpenSearchManager
 
 logger = logging.getLogger(__name__)
 

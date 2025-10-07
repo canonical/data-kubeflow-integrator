@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
+import logging
 from pathlib import Path
 
 import jubilant
-import logging
 import pytest
-
 
 logger = logging.getLogger(__name__)
 logging.getLogger("jubilant.wait").setLevel(logging.WARNING)
