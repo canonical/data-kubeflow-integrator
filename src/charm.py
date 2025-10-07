@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# Copyright 2025 Ubuntu
+# See LICENSE file for licensing details.
+
+"""Charm the application."""
+
+import logging
+from data_platform_helpers.advanced_statuses.handler import StatusHandler
+import ops
+from core.state import GlobalState
+from events.general import GeneralEventsHandler
+from managers.opensearch import OpenSearchManager
+from managers.manifests import KubernetesManifestsManager
+
+
+logger = logging.getLogger(__name__)
+
+
+class KubeflowIntegratorCharm(ops.CharmBase):
+    """Charm the application."""
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+        # Context
+        self.state = GlobalState(self)
+
+        # Managers
+        self.opensearch_manager = OpenSearchManager(self.state)
+        self.manifests_manager = KubernetesManifestsManager(self.state)
+
+        self.status = StatusHandler(  # priority order
+            self, self.manifests_manager, self.opensearch_manager
+        )
+
+        # Event Handlers
+        self.general_events = GeneralEventsHandler(self, self.state)
+
+
+if __name__ == "__main__":  # pragma: nocover
+    ops.main(KubeflowIntegratorCharm)

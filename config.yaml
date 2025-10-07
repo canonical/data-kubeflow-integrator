@@ -1,0 +1,57 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+options:
+  profile:
+    type: string
+    default:
+    description: The user profile to integrate with, valid values are any valid namespace name and '*' which integrates with all profiles.
+  opensearch-index-name:
+    type: string
+    default:
+    description: The index name for which access is granted.
+  opensearch-extra-user-roles:
+    type: string
+    default:
+    description: A comma-separated list of values that contains the required extra roles. This can be 'admin'.
+  kafka-topic-name:
+    type: string
+    default:
+    description: The topic name for which the access is granted.
+  kafka-extra-user-roles:
+    type: string
+    default:
+    descripiton: A comma-separated list of values that contains the required. This can be 'producer' or 'consumer'.
+  kafka-consumer-group-prefix:
+    type: string
+    default:
+    description: The required consumer group prefix for Kafka. This is an optional parameter that could be specified in case of 'consumer' role is set.
+  mongodb-database-name:
+    type: string
+    default:
+    descripiton: The desired database name for which the access will be granted.
+  mongodb-extra-user-roles:
+    type: string
+    default:
+    description: A comma-separated list of values that contains the required extra roles. This can be 'admin'.
+  mysql-database-name:
+    type: string
+    default:
+    description: The desired database name for which the access will be granted.
+  mysql-extra-user-roles:
+    type: string
+    default:
+    description: A comma-separated list of values that contains the required extra roles. This can be 'admin'.
+  postgresql-database-name:
+    type: string
+    default:
+    description: The desired database name for which the access will be granted.
+  postgresql-extra-user-roles:
+    type: string
+    default:
+    description: A comma-separated list of values that contains the required extra roles. This can be 'admin'.
+  spark-service-account:
+    type: string
+    default:
+    description: The service account name to use with Spark jobs.
+
