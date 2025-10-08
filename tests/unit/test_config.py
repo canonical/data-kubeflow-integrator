@@ -2,14 +2,12 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import dataclasses
 from pathlib import Path
-from unittest.mock import patch
 
-import yaml
 import pytest
+import yaml
 from ops import ActiveStatus, BlockedStatus, testing
-from ops.testing import Context, Secret, State
+from ops.testing import State
 
 from src.charm import KubeflowIntegratorCharm
 

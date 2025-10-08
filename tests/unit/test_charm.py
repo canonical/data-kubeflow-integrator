@@ -3,13 +3,11 @@
 #
 # To learn more about testing, see https://ops.readthedocs.io/en/latest/explanation/testing.html
 
-import pytest
-from ops import testing
 from pathlib import Path
-import yaml
-from ops.testing import Context, Secret, State
-from ops import ActiveStatus, BlockedStatus
 
+import yaml
+from ops import ActiveStatus, BlockedStatus, testing
+from ops.testing import State
 
 from charm import KubeflowIntegratorCharm
 

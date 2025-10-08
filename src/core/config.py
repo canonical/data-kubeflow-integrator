@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import re
-from typing import Annotated
+from typing import Annotated, Any
 
 from charms.data_platform_libs.v0.data_interfaces import KafkaRequires
 from charms.data_platform_libs.v0.data_models import BaseConfigModel
@@ -44,11 +44,11 @@ class ProfileConfig(BaseConfigModel):
 
     @model_validator(mode="before")
     @classmethod
-    def remove_value_if_None(cls, data: Any) -> Any:
-        """Remove value of profile if the value is None to show missing config"""
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of profile if the value is None to show missing config."""
         if isinstance(data, dict):
             if "profile" in data:
-                if data["profile"] == None:
+                if data["profile"] is None:
                     data.pop("profile")
         return data
 
@@ -66,11 +66,11 @@ class OpenSearchConfig(BaseConfigModel):
 
     @model_validator(mode="before")
     @classmethod
-    def remove_value_if_None(cls, data: Any) -> Any:
-        """Remove value of profile if the value is None to show missing config"""
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of profile if the value is None to show missing config."""
         if isinstance(data, dict):
             if "opensearch-index-name" in data:
-                if data["opensearch-index-name"] == None:
+                if data["opensearch-index-name"] is None:
                     data.pop("opensearch-index-name")
         return data
 

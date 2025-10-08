@@ -10,13 +10,9 @@ import yaml
 from ops.testing import PeerRelation, State
 from pytest import fixture
 
-
-
-
 CONFIG = yaml.safe_load(Path("./config.yaml").read_text())
 ACTIONS = yaml.safe_load(Path("./actions.yaml").read_text())
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
-
 
 
 @fixture()

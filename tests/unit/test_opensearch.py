@@ -7,8 +7,8 @@ from pathlib import Path
 
 import yaml
 from charms.data_platform_libs.v0.data_models import json
-from ops import BlockedStatus, testing, ActiveStatus
-from ops.testing import Context, Secret, State, Relation
+from ops import ActiveStatus, BlockedStatus, testing
+from ops.testing import Relation, State
 
 from charm import KubeflowIntegratorCharm
 
