@@ -1,7 +1,9 @@
 apiVersion: v1
 kind: Secret
 metadata:
+  {% if secret.namespace %}
   namespace: {{ secret.namespace }}
+  {% endif %}
   name: {{ secret.name }}
   labels:
     user.kubeflow.org/enabled: "true"

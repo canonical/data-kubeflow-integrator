@@ -69,7 +69,6 @@ class OpenSearchManager(ManagerStatusProtocol, WithLogging):
                     status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
                 if invalid:
                     status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
-
         if opensearch_config and not self.is_opensearch_related:
             # Block the charm since we need the integration with opensearch
             status_list.append(CharmStatuses.missing_integration_with_opensearch())

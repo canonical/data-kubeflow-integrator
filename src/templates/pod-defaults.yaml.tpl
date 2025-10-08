@@ -2,7 +2,9 @@ apiVersion: kubeflow.org/v1alpha1
 kind: PodDefault
 metadata:
   name: {{ pod_default.name }}
+  {% if pod_default.namespace %}
   namespace: {{ pod_default.namespace }}
+  {% endif %}
 spec:
   selector:
     matchLabels:

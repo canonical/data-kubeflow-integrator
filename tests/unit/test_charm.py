@@ -5,22 +5,45 @@
 
 import pytest
 from ops import testing
+from pathlib import Path
+import yaml
+from ops.testing import Context, Secret, State
+from ops import ActiveStatus, BlockedStatus
+
 
 from charm import KubeflowIntegratorCharm
 
+CONFIG = yaml.safe_load(Path("./config.yaml").read_text())
+ACTIONS = yaml.safe_load(Path("./actions.yaml").read_text())
+METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 
-def mock_get_version():
-    """Get a mock version string without executing the workload code."""
-    return "1.0.0"
 
-
-def test_start(monkeypatch: pytest.MonkeyPatch):
+def test_charm_blocked_on_start(base_state: State):
     """Test that the charm has the correct state after handling the start event."""
-    # Arrange:
+    # Given
     ctx = testing.Context(KubeflowIntegratorCharm)
-    monkeypatch.setattr("charm.kubeflow_integrator.get_version", mock_get_version)
-    # Act:
-    state_out = ctx.run(ctx.on.start(), testing.State())
-    # Assert:
-    assert state_out.workload_version is not None
-    assert state_out.unit_status == testing.ActiveStatus()
+    state_in = base_state
+    # When:
+    state_out = ctx.run(ctx.on.start(), state_in)
+    # Then:
+    assert isinstance(status := state_out.unit_status, BlockedStatus)
+    assert "Missing config(s): 'profile'" in status.message
+
+
+def test_charm_start_ok(base_state: State, charm_configuration: dict):
+    """Test that charm starts ok if the 'profile' config parameter is provided."""
+    # Given
+    charm_configuration["options"]["profile"]["default"] = "profile-name"
+    ctx = testing.Context(
+        KubeflowIntegratorCharm,
+        meta=METADATA,
+        config=charm_configuration,
+        actions=ACTIONS,
+        unit_id=0,
+    )
+
+    state_in = base_state
+    # When:
+    state_out = ctx.run(ctx.on.start(), state_in)
+    # Then:
+    assert state_out.unit_status == ActiveStatus()

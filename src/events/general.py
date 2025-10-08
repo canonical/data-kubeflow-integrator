@@ -74,18 +74,19 @@ class GeneralEventsHandler(Object, WithLogging):
         )
 
         # resource-dispatcher
-        self.framework.observe(
-            self.charm.on[SECRETS_DISPATCHER_RELATION_NAME].relation_created,
-            self._on_manifests_relation_change,
-        )
-        self.framework.observe(
-            self.charm.on[SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME].relation_created,
-            self._on_manifests_relation_change,
-        )
-        self.framework.observe(
-            self.charm.on[POD_DEFAULTS_DISPATCHER_RELATION_NAME].relation_created,
-            self._on_manifests_relation_change,
-        )
+        for relation_name in [
+            SECRETS_DISPATCHER_RELATION_NAME,
+            SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
+            POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+        ]:
+            self.framework.observe(
+                self.charm.on[relation_name].relation_created,
+                self._on_manifests_relation_change,
+            )
+            self.framework.observe(
+                self.charm.on[relation_name].relation_changed,
+                self._on_manifests_relation_change,
+            )
 
     def _on_manifests_relation_change(self, _):
         """Event handler for when any of the manifests relations change."""

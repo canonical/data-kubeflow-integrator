@@ -21,6 +21,7 @@ from constants import (
     K8S_OPENSEARCH_PODDEFAULT_SELECTOR_LABEL,
     K8S_OPENSEARCH_SECRET_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+    SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
 )
 from core.config import ProfileConfig
@@ -73,7 +74,9 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
             k8s_secret_info = K8sSecretManifestInfo(
                 name=K8S_OPENSEARCH_SECRET_NAME,
-                namespace=self.state.profile_config.profile,
+                namespace=None
+                if self.state.profile_config.profile == "*"
+                else self.state.profile_config.profile,
                 data=creds,
                 labels=None,
             )
@@ -98,7 +101,9 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 ]
             k8s_poddefault_info = K8sPodDefaultManifestInfo(
                 name=K8S_OPENSEARCH_PODDEFAULT_NAME,
-                namespace=self.state.profile_config.profile,
+                namespace=None
+                if self.state.profile_config.profile == "*"
+                else self.state.profile_config.profile,
                 desc=K8S_OPENSEARCH_PODDEFAULT_DESC,
                 selector_name=K8S_OPENSEARCH_PODDEFAULT_SELECTOR_LABEL,
                 env_vars=poddefault_env_vars,
@@ -171,9 +176,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
     @property
     def is_k8s_secrets_manifests_related(self) -> bool:
         """Is the charm related to a secrets manifests relation."""
-        return bool(
-            self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME)
-        )
+        return bool(self.state.charm.model.relations.get(SECRETS_DISPATCHER_RELATION_NAME))
 
     @property
     def is_k8s_poddefaults_manifests_related(self) -> bool:

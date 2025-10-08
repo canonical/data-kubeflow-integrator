@@ -12,9 +12,9 @@ from typing import Annotated
 
 from charms.data_platform_libs.v0.data_interfaces import KafkaRequires
 from charms.data_platform_libs.v0.data_models import BaseConfigModel
-from pydantic import AfterValidator, BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field, model_validator
 
-PROFILE_REGEX = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+PROFILE_REGEX = re.compile(r"^(\*|[a-z0-9]([-a-z0-9]*[a-z0-9])?)$")
 
 
 def nullify_empty_string(in_str: str) -> str | None:
@@ -42,17 +42,37 @@ class ProfileConfig(BaseConfigModel):
     # Validate profile with k8s namespace regex following rfc1123
     profile: str = Field(pattern=PROFILE_REGEX)
 
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_None(cls, data: Any) -> Any:
+        """Remove value of profile if the value is None to show missing config"""
+        if isinstance(data, dict):
+            if "profile" in data:
+                if data["profile"] == None:
+                    data.pop("profile")
+        return data
+
 
 class OpenSearchConfig(BaseConfigModel):
     """Model for the opensearch configuration."""
 
-    index_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    index_name: Annotated[str, BeforeValidator(nullify_empty_string)] = Field(
         alias="opensearch-index-name"
     )
 
     extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="opensearch-extra-user-roles"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_None(cls, data: Any) -> Any:
+        """Remove value of profile if the value is None to show missing config"""
+        if isinstance(data, dict):
+            if "opensearch-index-name" in data:
+                if data["opensearch-index-name"] == None:
+                    data.pop("opensearch-index-name")
+        return data
 
 
 class KafkaConfig(BaseConfigModel):

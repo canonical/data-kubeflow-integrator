@@ -16,7 +16,7 @@ class K8sSecretManifestInfo(BaseModel):
     """Structured model used to group info regarding a secret, to be used to generate k8s secret manifest."""
 
     name: str
-    namespace: str
+    namespace: str | None
     labels: dict[str, str] | None = Field(None)
     data: dict[str, str]
 
@@ -48,7 +48,7 @@ class K8sPodDefaultManifestInfo(BaseModel):
     """Structured model used to group info regarding a pod default, to be used to generate k8s poddefault manifest."""
 
     name: str
-    namespace: str
+    namespace: str | None
     desc: str
     selector_name: str
     env_vars: list[PodDefaultEnvVar]
