@@ -122,14 +122,14 @@ class GeneralEventsHandler(Object, WithLogging):
 
         if self.state.opensearch_config and not self.charm.opensearch_manager.index_active:
             # route the config change to appropriate handler
-            self._on_opensearch_confg_changed()
+            self._on_opensearch_config_changed()
 
         # TODO: Add handlers for other DataPlatform databases
 
         # reconcile manifests
         self._on_manifests_relation_change(event)
 
-    def _on_opensearch_confg_changed(self) -> None:
+    def _on_opensearch_config_changed(self) -> None:
         """Handle on config changed for opensearch."""
         self.charm.opensearch_manager.update_relation_data()
 

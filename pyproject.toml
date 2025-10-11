@@ -55,7 +55,7 @@ markers = ["unstable"]
 
 [tool.ruff]
 line-length = 99
-extend-exclude = ["__pycache__", "*.egg_info", "tests/integration/test-charm-s3"]
+extend-exclude = ["__pycache__", "*.egg_info"]
 target-version = "py310"
 src = ["src", "tests"]
 
