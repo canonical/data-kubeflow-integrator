@@ -47,9 +47,8 @@ class GeneralEventsHandler(Object, WithLogging):
         self.state = state
 
         self.framework.observe(self.charm.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.charm.on.secret_changed, self._on_secret_changed)
 
-        # 3rd database
+        ## databases
         self.opensearch = OpenSearchRequires(
             self.charm,
             OPENSEARCH,
@@ -113,7 +112,7 @@ class GeneralEventsHandler(Object, WithLogging):
         """Handle relation broken event."""
         pass
 
-    def _on_config_changed(self, event: ConfigChangedEvent) -> None:  # noqa: C901
+    def _on_config_changed(self, event: ConfigChangedEvent) -> None:
         """Event handler for configuration changed events."""
         # Only execute in the unit leader
         if not self.charm.unit.is_leader():
@@ -122,24 +121,9 @@ class GeneralEventsHandler(Object, WithLogging):
 
         if self.state.opensearch_config and not self.charm.opensearch_manager.index_active:
             # route the config change to appropriate handler
-            self._on_opensearch_confg_changed()
+            self.charm.opensearch_manager.update_relation_data()
 
         # TODO: Add handlers for other DataPlatform databases
 
         # reconcile manifests
         self._on_manifests_relation_change(event)
-
-    def _on_opensearch_confg_changed(self) -> None:
-        """Handle on config changed for opensearch."""
-        self.charm.opensearch_manager.update_relation_data()
-
-    def _on_secret_changed(self, event: ops.SecretChangedEvent) -> None:
-        """Handle the secret changed event.
-
-        When a secret is changed, it is first checked that whether this particular secret
-        is used in the charm's config. If yes, the secret is to be updated in the relation
-        databag.
-        """
-        # Only execute in the unit leader
-        if not self.charm.unit.is_leader():
-            return
