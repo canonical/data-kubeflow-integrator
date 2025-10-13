@@ -2,6 +2,4 @@ summary: test_opensearch.py
 environment:
   TEST_MODULE: test_opensearch.py
 execute: |
-  tox run -e integration -- "tests/integration/$TEST_MODULE"  --alluredir="$SPREAD_TASK/allure-results"
-artifacts:
-  - allure-results
+  tox run -e integration -- "tests/integration/$TEST_MODULE" 
