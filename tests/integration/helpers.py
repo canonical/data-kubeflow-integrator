@@ -7,6 +7,7 @@ import json
 import logging
 import subprocess
 import pytest
+from pydantic import BaseModel, Field, ValidationError
 
 import jubilant
 
@@ -42,3 +43,67 @@ def get_application_data(juju: jubilant.Juju, app_name: str, relation_name: str)
         )
 
     return {relation["relation-id"]: relation["application-data"] for relation in relation_data}
+
+
+class K8sMetadata(BaseModel):
+    name: str
+    namespace: str | None
+
+
+class K8sSecret(BaseModel):
+    api_version: str = Field("v1", alias="apiVersion")
+    kind: str = Field("Secret")
+    metadata: K8sMetadata
+    string_data: dict[str, str] = Field(alias="stringData")
+
+
+class EnvValueFromSecret(BaseModel):
+    name: str
+    key: str
+    optional: bool = Field(False)
+
+
+class EnvValueFrom(BaseModel):
+    secret_key_ref: EnvValueFromSecret = Field(alias="secretKeyRef")
+
+
+class K8sEnv(BaseModel):
+    name: str
+    value_from: EnvValueFrom = Field(alias="valueFrom")
+
+
+class K8sPodDefault(BaseModel):
+    class K8sPodDefaultSpec(BaseModel):
+        env: list[K8sEnv]
+
+    api_version: str = Field("kubeflow.org/v1alpha1", alias="apiVersion")
+    kind: str = Field("PodDefault")
+    metadata: K8sMetadata
+    spec: K8sPodDefaultSpec
+
+
+def validate_k8s_secret(
+    manifest: dict, keys_values_to_check: dict[str, str] | None = None
+) -> bool:
+    """Validate that the manifest is a kubernetes secret manifest"""
+    try:
+        secret = K8sSecret(**manifest)
+        if keys_values_to_check:
+            for key, value in keys_values_to_check.items():
+                assert secret.string_data[key] == value
+        return True
+    except ValidationError as e:
+        logger.error("Validation Error of kubernetes secret")
+        logger.error(e)
+        return False
+
+
+def validate_k8s_poddefault(manifest: dict) -> bool:
+    """Validate that the manifest is a kubernetes pod default manifest"""
+    try:
+        K8sPodDefault(**manifest)
+        return True
+    except ValidationError as e:
+        logger.error("Validation Error of kubernetes pod default")
+        logger.error(e)
+        return False

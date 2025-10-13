@@ -22,7 +22,7 @@ METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
 MICROK8S_CLOUD = "microk8s-cloud"
 MICROK8S_CONTROLLER = "k8s-controller"
-MICROK8S_MODEL_NAME = "k8s-model"
+MICROK8S_MODEL_NAME = "microk8s-model"
 
 
 def pytest_addoption(parser):
