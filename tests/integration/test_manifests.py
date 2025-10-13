@@ -2,16 +2,14 @@
 # Copyright 2025 Ubuntu
 # See LICENSE file for licensing details.
 
+import json
 import logging
 from pathlib import Path
-import time
 
 import jubilant
 import yaml
-import json
-
 from helpers import get_application_data, validate_k8s_poddefault, validate_k8s_secret
-from tenacity import Retrying, sleep, stop_after_attempt, wait_fixed
+from tenacity import Retrying, stop_after_attempt, wait_fixed
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +38,7 @@ RESOURCE_DISPATCHER_CHANNEL = "latest/edge"
 def test_integrate_with_resource_dispatcher(
     juju: jubilant.Juju, microk8s_model: str, kubeflow_integrator: str
 ):
-    """
-    Test deploying the kuebflow-integrator charm and resource dispatcher, integrate them
-    and validate all active.
-    """
+    """Test deploying the kuebflow-integrator charm and resource dispatcher, integrate them and validate all active."""
     # save the temp_model
     temp_model = juju.model
     # Switch to the k8s model
@@ -118,10 +113,7 @@ def test_integrate_with_resource_dispatcher(
 
 
 def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_model: str):
-    """
-    Deploy opensearch, integrate it with kubeflow-integrator and make sure that
-    manifests are generated in the relation data.
-    """
+    """Deploy opensearch, integrate it with kubeflow-integrator and make sure that manifests are generated in the relation data."""
     temp_model = juju.model
     # Deploy opensearch and self-signed-certificates
     logger.info("Deploying OpenSearch charm")

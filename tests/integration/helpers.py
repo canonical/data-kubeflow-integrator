@@ -5,11 +5,9 @@
 
 import json
 import logging
-import subprocess
-import pytest
-from pydantic import BaseModel, Field, ValidationError
 
 import jubilant
+from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +44,15 @@ def get_application_data(juju: jubilant.Juju, app_name: str, relation_name: str)
 
 
 class K8sMetadata(BaseModel):
+    """Kubernetes metadata section."""
+
     name: str
     namespace: str | None
 
 
 class K8sSecret(BaseModel):
+    """Kubernetes secret manifest model."""
+
     api_version: str = Field("v1", alias="apiVersion")
     kind: str = Field("Secret")
     metadata: K8sMetadata
@@ -58,22 +60,32 @@ class K8sSecret(BaseModel):
 
 
 class EnvValueFromSecret(BaseModel):
+    """Kubernetes environment variable from secret."""
+
     name: str
     key: str
     optional: bool = Field(False)
 
 
 class EnvValueFrom(BaseModel):
+    """envValueFrom model."""
+
     secret_key_ref: EnvValueFromSecret = Field(alias="secretKeyRef")
 
 
 class K8sEnv(BaseModel):
+    """Environment variable model."""
+
     name: str
     value_from: EnvValueFrom = Field(alias="valueFrom")
 
 
 class K8sPodDefault(BaseModel):
+    """Kubernetes model for pod default."""
+
     class K8sPodDefaultSpec(BaseModel):
+        """pod default spec section."""
+
         env: list[K8sEnv]
 
     api_version: str = Field("kubeflow.org/v1alpha1", alias="apiVersion")
@@ -85,7 +97,7 @@ class K8sPodDefault(BaseModel):
 def validate_k8s_secret(
     manifest: dict, keys_values_to_check: dict[str, str] | None = None
 ) -> bool:
-    """Validate that the manifest is a kubernetes secret manifest"""
+    """Validate that the manifest is a kubernetes secret manifest."""
     try:
         secret = K8sSecret(**manifest)
         if keys_values_to_check:
@@ -99,7 +111,7 @@ def validate_k8s_secret(
 
 
 def validate_k8s_poddefault(manifest: dict) -> bool:
-    """Validate that the manifest is a kubernetes pod default manifest"""
+    """Validate that the manifest is a kubernetes pod default manifest."""
     try:
         K8sPodDefault(**manifest)
         return True

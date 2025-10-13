@@ -7,8 +7,6 @@ from pathlib import Path
 
 import jubilant
 import yaml
-import json
-
 from helpers import get_application_data
 
 logger = logging.getLogger(__name__)
@@ -29,9 +27,7 @@ SELF_SIGNED_CERTIFICATES_APP_NAME = "self-signed-certificates"
 
 
 def test_deploy_and_config_opensearch(juju: jubilant.Juju, kubeflow_integrator: str):
-    """
-    Deploy Kubeflow Integrator, configure opensearch-index-name. The charm should be in a blocked status waiting to be integrated with opensearch.
-    """
+    """Deploy Kubeflow Integrator, configure opensearch-index-name. The charm should be in a blocked status waiting to be integrated with opensearch."""
     logger.info("Deploying Kubeflow Integrator charm")
     # When:
     juju.deploy(
@@ -67,9 +63,7 @@ def test_deploy_and_config_opensearch(juju: jubilant.Juju, kubeflow_integrator: 
 
 
 def test_integrate_with_opensearch(juju: jubilant.Juju):
-    """
-    Deploy OpenSearch, integrate with kubeflow-integrator. The charm should be in an active state with configured index in the relation.
-    """
+    """Deploy OpenSearch, integrate with kubeflow-integrator. The charm should be in an active state with configured index in the relation."""
     logger.info("Deploying OpenSearch charm")
 
     juju.deploy(
@@ -124,12 +118,7 @@ def test_integrate_with_opensearch(juju: jubilant.Juju):
 
 
 def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
-    """
-    Test removing the relation, removing the `opensearch-index-name` config option,
-    then integrate again with opensearch. The charm should be in a blocked status,
-    complaining about a missing config option.
-    """
-
+    """Test removing the relation, removing the `opensearch-index-name` config option, then integrate again with opensearch. The charm should be in a blocked status, complaining about a missing config option."""
     logger.info("Removing relation with opensearch")
     # Remove relation of opensearch and kubeflow-integrator
     juju.remove_relation(OPENSEARCH_APP_NAME, KUBEFLOW_INTEGRATOR_APP_NAME)

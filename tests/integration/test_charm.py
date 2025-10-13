@@ -16,10 +16,9 @@ KUBEFLOW_INTEGRATOR = "kubeflow-integrator"
 
 
 def test_deploy_and_config(juju: jubilant.Juju, kubeflow_integrator: str):
-    """
-    Test deploying the kubeflow integrator charm. The charm should be in a blocked
-    status since `profile` config option is not specified. The charm should be in an
-    active state once the config option is specified.
+    """Test deploying the kubeflow integrator charm.
+
+    The charm should be in a blocked status since `profile` config option is not specified. The charm should be in an active state once the config option is specified.
     """
     logger.info("Deploying Kubeflow Integrator charm")
     # When:
@@ -49,10 +48,7 @@ def test_deploy_and_config(juju: jubilant.Juju, kubeflow_integrator: str):
 
 
 def test_deploy_invalid_config(juju: jubilant.Juju, kubeflow_integrator: str):
-    """
-    Test deploying the kubeflow integrator charm using an invalid profile.
-    """
-
+    """Test deploying the kubeflow integrator charm using an invalid profile."""
     logger.info("Configuring the profile config option with invalid profile")
     # When:
     juju.config(KUBEFLOW_INTEGRATOR, {"profile": "-profile"})

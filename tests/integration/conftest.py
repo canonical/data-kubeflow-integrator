@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
+import json
 import logging
-from pathlib import Path
-
 import os
+import pathlib
+import subprocess
+import time
+from pathlib import Path
 from typing import Any, Generator
-import yaml
+
 import jubilant
 import pytest
-import time
-import json
-import subprocess
-import pathlib
-from tenacity import Retrying, wait_fixed, stop_after_delay
+import yaml
+from tenacity import Retrying, stop_after_delay, wait_fixed
 
 logger = logging.getLogger(__name__)
 logging.getLogger("jubilant.wait").setLevel(logging.WARNING)
@@ -36,7 +36,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture
 def ubuntu_base() -> str | None:
-    """charm base version to use for testing."""
+    """Charm base version to use for testing."""
     return os.environ.get("CHARM_UBUNTU_BASE", None)
 
 
@@ -151,7 +151,6 @@ def microk8s_model(
     Returns:
         Connected Juju model.
     """
-
     model_name = MICROK8S_MODEL_NAME
     controller_models = juju.cli("list-models", include_model=False)
     temp_model = juju.model
