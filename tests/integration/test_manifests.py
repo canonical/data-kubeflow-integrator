@@ -54,9 +54,11 @@ def test_integrate_with_resource_dispatcher(
     )
 
     # Wait for charms to be active
-    juju.wait(
+    status = juju.wait(
         lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
     )
+
+    logger.info(status)
 
     # Offer interfaces
     logger.info("Offering resource dispatcher interfaces")
