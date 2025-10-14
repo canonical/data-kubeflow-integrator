@@ -62,9 +62,15 @@ def test_integrate_with_resource_dispatcher(
 
     # Offer interfaces
     logger.info("Offering resource dispatcher interfaces")
-    juju.offer(RESOURCE_DISPATCHER_APP_NAME, name="secrets-dispatcher", endpoint="secrets")
     juju.offer(
-        RESOURCE_DISPATCHER_APP_NAME, name="poddefaults-dispatcher", endpoint="pod-defaults"
+        f"{microk8s_model}.{RESOURCE_DISPATCHER_APP_NAME}",
+        name="secrets-dispatcher",
+        endpoint="secrets",
+    )
+    juju.offer(
+        f"{microk8s_model}.{RESOURCE_DISPATCHER_APP_NAME}",
+        name="poddefaults-dispatcher",
+        endpoint="pod-defaults",
     )
 
     # Switch to the lxd model
