@@ -43,6 +43,17 @@ def get_application_data(juju: jubilant.Juju, app_name: str, relation_name: str)
     return {relation["relation-id"]: relation["application-data"] for relation in relation_data}
 
 
+OPENSEARCH_MODEL_CONFIG = {
+    "logging-config": "<root>=INFO;unit=DEBUG",
+    "cloudinit-userdata": """postruncmd:
+        - [ 'sysctl', '-w', 'vm.max_map_count=262144' ]
+        - [ 'sysctl', '-w', 'fs.file-max=1048576' ]
+        - [ 'sysctl', '-w', 'vm.swappiness=0' ]
+        - [ 'sysctl', '-w', 'net.ipv4.tcp_retries2=5' ]
+    """,
+}
+
+
 class K8sMetadata(BaseModel):
     """Kubernetes metadata section."""
 

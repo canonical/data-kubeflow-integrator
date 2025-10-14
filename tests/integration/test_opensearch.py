@@ -7,7 +7,7 @@ from pathlib import Path
 
 import jubilant
 import yaml
-from helpers import get_application_data
+from helpers import OPENSEARCH_MODEL_CONFIG, get_application_data
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,9 @@ def test_deploy_and_config_opensearch(juju: jubilant.Juju, kubeflow_integrator: 
 def test_integrate_with_opensearch(juju: jubilant.Juju):
     """Deploy OpenSearch, integrate with kubeflow-integrator. The charm should be in an active state with configured index in the relation."""
     logger.info("Deploying OpenSearch charm")
+
+    logger.info("Configure model with opensearch required config")
+    juju.model_config(OPENSEARCH_MODEL_CONFIG)
 
     juju.deploy(
         OPENSEARCH_CHARM,

@@ -1,8 +1,8 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-name: kubeflow-integrator
-title: Kubeflow Integrator 
+name: data-kubeflow-integrator
+title: Data Kubeflow Integrator 
 summary: An Integrator charm designed to integrate kubeflow and data Platform charms 
 description: |
   An Integrator charm that get databases credentials and share with Kubeflow.

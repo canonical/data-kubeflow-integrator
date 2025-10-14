@@ -2,4 +2,6 @@ summary: test_manifests.py
 environment:
   TEST_MODULE: test_manifests.py
 execute: |
-  tox run -e integration -- "tests/integration/$TEST_MODULE"  
+  tox run -e integration -- "tests/integration/$TEST_MODULE" --alluredir="$SPREAD_TASK/allure-results"
+artifacts:
+  - allure-results
