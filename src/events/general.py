@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import ops
 from charms.data_platform_libs.v0.data_interfaces import (
     IndexCreatedEvent,
     IndexEntityCreatedEvent,
@@ -58,7 +57,9 @@ class GeneralEventsHandler(Object, WithLogging):
         # opensearch
         self.framework.observe(self.opensearch.on.index_created, self._on_index_created)
         self.framework.observe(self.opensearch.on.index_entity_created, self._on_entity_created)
-        self.framework.observe(self.charm.on[OPENSEARCH_RELATION_NAME].relation_broken, self._on_relation_broken)
+        self.framework.observe(
+            self.charm.on[OPENSEARCH_RELATION_NAME].relation_broken, self._on_relation_broken
+        )
 
         # resource-dispatcher manifests
         self.secrets_manifests_wrapper = KubernetesManifestRequirerWrapper(
@@ -92,7 +93,8 @@ class GeneralEventsHandler(Object, WithLogging):
         # Only execute in the unit leader
         if not self.charm.unit.is_leader():
             return
-         reconciled_manifests = ReconciledManifests()
+
+        reconciled_manifests = ReconciledManifests()
         if self.charm.manifests_manager.is_manifests_provider_related:
             # Reconcile opensearch manifests
             opensearch_manifests = self.charm.opensearch_manager.generate_manifests()
