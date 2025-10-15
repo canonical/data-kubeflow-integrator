@@ -1,0 +1,40 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: kubeflow-integrator
+title: Kubeflow Integrator 
+summary: An Integrator charm designed to integrate kubeflow and data Platform charms 
+description: |
+  An Integrator charm that get databases credentials and share with Kubeflow.
+  The charm is designed to get database credentials from integrated database and share it to the resource-dispatcher charm to share credentials to KubeFlow profiles.
+
+peers:
+  status-peers:
+    interface: status-peers
+  kubeflow-integrator-peers:
+    interface: kubeflow-integrator-peers
+
+requires:
+  mysql:
+    interface: mysql_client
+    limit: 1
+  postgresql:
+    interface: postgresql_client
+    limit: 1
+  mongodb:
+    interface: mongodb_client
+    limit: 1
+  kafka:
+    interface: kafka_client
+    limit: 1
+  opensearch:
+    interface: opensearch_client
+    limit: 1
+# relations with `resource-dispatcher`
+  secrets:
+    interface: kubernetes_manifest
+  service-accounts:
+    interface: kubernetes_manifest
+  pod-defaults:
+    interface: kubernetes_manifest
+
