@@ -24,7 +24,7 @@ from ops import (
 from ops.charm import ConfigChangedEvent
 
 from constants import (
-    OPENSEARCH,
+    OPENSEARCH_RELATION_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
@@ -51,14 +51,14 @@ class GeneralEventsHandler(Object, WithLogging):
         ## databases
         self.opensearch = OpenSearchRequires(
             self.charm,
-            OPENSEARCH,
+            OPENSEARCH_RELATION_NAME,
             getattr(self.state.opensearch_config, "index_name", ""),
             extra_user_roles=getattr(self.state.opensearch_config, "extra_user_roles", ""),
         )
         # opensearch
         self.framework.observe(self.opensearch.on.index_created, self._on_index_created)
         self.framework.observe(self.opensearch.on.index_entity_created, self._on_entity_created)
-        self.framework.observe(self.charm.on[OPENSEARCH].relation_broken, self._on_relation_broken)
+        self.framework.observe(self.charm.on[OPENSEARCH_RELATION_NAME].relation_broken, self._on_relation_broken)
 
         # resource-dispatcher manifests
         self.secrets_manifests_wrapper = KubernetesManifestRequirerWrapper(
@@ -89,7 +89,10 @@ class GeneralEventsHandler(Object, WithLogging):
 
     def _on_manifests_relation_change(self, _):
         """Event handler for when any of the manifests relations change."""
-        reconciled_manifests = ReconciledManifests()
+        # Only execute in the unit leader
+        if not self.charm.unit.is_leader():
+            return
+         reconciled_manifests = ReconciledManifests()
         if self.charm.manifests_manager.is_manifests_provider_related:
             # Reconcile opensearch manifests
             opensearch_manifests = self.charm.opensearch_manager.generate_manifests()

@@ -4,7 +4,7 @@
 
 """Charm constants."""
 
-OPENSEARCH = "opensearch"
+OPENSEARCH_RELATION_NAME = "opensearch"
 STATUS_PEERS_RELATION_NAME = "status-peers"
 SECRETS_DISPATCHER_RELATION_NAME = "secrets"
 SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME = "service-accounts"
