@@ -26,14 +26,14 @@ def nullify_empty_string(in_str: str) -> str | None:
 
 def validate_topic_name(topic: str | None) -> str | None:
     """Validate topic name for Kafka."""
-    if topic:
-        if KafkaRequires.is_topic_value_acceptable(topic):
-            return topic
-        else:
-            raise ValueError(
-                f"Trying to pass an invalid topic value: {topic}, please pass an acceptable value instead"
-            )
-    return None
+    if not topic:
+        return None
+    if KafkaRequires.is_topic_value_acceptable(topic):
+        return topic
+    else:
+        raise ValueError(
+            f"Trying to pass an invalid topic value: {topic}, please pass an acceptable value instead"
+        )
 
 
 class ProfileConfig(BaseConfigModel):

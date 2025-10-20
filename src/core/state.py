@@ -11,6 +11,7 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DataPeerData,
     DataPeerUnitData,
 )
+from charms.data_platform_libs.v0.data_models import ValidationError
 from data_platform_helpers.advanced_statuses.protocol import StatusesState, StatusesStateProtocol
 from ops import Object, Relation
 
@@ -48,18 +49,16 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
     def opensearch_config(self) -> OpenSearchConfig | None:
         """Return information regarding opensearch config options."""
         try:
-            validated_config = OpenSearchConfig(**self.config)
+            return OpenSearchConfig(**self.config)
         except Exception:
             return None
-
-        return validated_config
 
     @property
     def profile_config(self) -> ProfileConfig | None:
         """Return information regarding the profile config option."""
         try:
             validated_config = ProfileConfig(**self.config)
-        except Exception:
+        except ValidationError:
             return None
 
         return validated_config

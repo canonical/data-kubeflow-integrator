@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import ops
 from charms.data_platform_libs.v0.data_interfaces import (
     IndexCreatedEvent,
     IndexEntityCreatedEvent,
@@ -24,7 +23,7 @@ from ops import (
 from ops.charm import ConfigChangedEvent
 
 from constants import (
-    OPENSEARCH,
+    OPENSEARCH_RELATION_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
@@ -47,19 +46,20 @@ class GeneralEventsHandler(Object, WithLogging):
         self.state = state
 
         self.framework.observe(self.charm.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.charm.on.secret_changed, self._on_secret_changed)
 
-        # 3rd database
+        ## databases
         self.opensearch = OpenSearchRequires(
             self.charm,
-            OPENSEARCH,
+            OPENSEARCH_RELATION_NAME,
             getattr(self.state.opensearch_config, "index_name", ""),
             extra_user_roles=getattr(self.state.opensearch_config, "extra_user_roles", ""),
         )
         # opensearch
         self.framework.observe(self.opensearch.on.index_created, self._on_index_created)
         self.framework.observe(self.opensearch.on.index_entity_created, self._on_entity_created)
-        self.framework.observe(self.charm.on[OPENSEARCH].relation_broken, self._on_relation_broken)
+        self.framework.observe(
+            self.charm.on[OPENSEARCH_RELATION_NAME].relation_broken, self._on_relation_broken
+        )
 
         # resource-dispatcher manifests
         self.secrets_manifests_wrapper = KubernetesManifestRequirerWrapper(
@@ -90,6 +90,10 @@ class GeneralEventsHandler(Object, WithLogging):
 
     def _on_manifests_relation_change(self, _):
         """Event handler for when any of the manifests relations change."""
+        # Only execute in the unit leader
+        if not self.charm.unit.is_leader():
+            return
+
         reconciled_manifests = ReconciledManifests()
         if self.charm.manifests_manager.is_manifests_provider_related:
             # Reconcile opensearch manifests
@@ -113,7 +117,7 @@ class GeneralEventsHandler(Object, WithLogging):
         """Handle relation broken event."""
         pass
 
-    def _on_config_changed(self, event: ConfigChangedEvent) -> None:  # noqa: C901
+    def _on_config_changed(self, event: ConfigChangedEvent) -> None:
         """Event handler for configuration changed events."""
         # Only execute in the unit leader
         if not self.charm.unit.is_leader():
@@ -122,24 +126,9 @@ class GeneralEventsHandler(Object, WithLogging):
 
         if self.state.opensearch_config and not self.charm.opensearch_manager.index_active:
             # route the config change to appropriate handler
-            self._on_opensearch_config_changed()
+            self.charm.opensearch_manager.update_relation_data()
 
         # TODO: Add handlers for other DataPlatform databases
 
         # reconcile manifests
         self._on_manifests_relation_change(event)
-
-    def _on_opensearch_config_changed(self) -> None:
-        """Handle on config changed for opensearch."""
-        self.charm.opensearch_manager.update_relation_data()
-
-    def _on_secret_changed(self, event: ops.SecretChangedEvent) -> None:
-        """Handle the secret changed event.
-
-        When a secret is changed, it is first checked that whether this particular secret
-        is used in the charm's config. If yes, the secret is to be updated in the relation
-        databag.
-        """
-        # Only execute in the unit leader
-        if not self.charm.unit.is_leader():
-            return
