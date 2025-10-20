@@ -43,7 +43,7 @@ def test_charm_block_when_integrated_with_opensearch(base_state: State, charm_co
     state_out = ctx.run(ctx.on.relation_changed(opensearch_relation), state_in)
 
     # Then:
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
+    assert isinstance(status := state_out.app_status, BlockedStatus)
     assert "Missing config(s): 'opensearch-index-name'" in status.message
 
 
@@ -64,7 +64,7 @@ def test_charm_generate_secret_manifests_when_integrated(
     # When:
     state_out = ctx.run(ctx.on.start(), state_in)
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()
 
     # Given
     charm_configuration["options"]["opensearch-index-name"]["default"] = "index"
@@ -74,8 +74,8 @@ def test_charm_generate_secret_manifests_when_integrated(
     state_out = ctx.run(ctx.on.config_changed(), state_in)
 
     # Then:
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
-    assert "Charm waiting to be integrated with OpenSearch" in status.message
+    assert isinstance(status := state_out.app_status, BlockedStatus)
+    assert "Missing relation with: OpenSearch" in status.message
 
     # Given:
     opensearch_relation = Relation(
@@ -93,7 +93,7 @@ def test_charm_generate_secret_manifests_when_integrated(
     # When:
     state_out = ctx.run(ctx.on.relation_changed(opensearch_relation), state_in)
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()
 
     # Given:
     secrets_manifests_relation = Relation(endpoint="secrets", interface="kubernetes_manifest")
@@ -104,7 +104,7 @@ def test_charm_generate_secret_manifests_when_integrated(
     state_out = ctx.run(ctx.on.relation_changed(secrets_manifests_relation), state_in)
 
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()
     # Make sure the manifest is generated
     kubernetes_manifests = state_out.get_relation(secrets_manifests_relation.id).local_app_data[
         "kubernetes_manifests"
@@ -135,7 +135,7 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
     # When:
     state_out = ctx.run(ctx.on.start(), state_in)
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()
 
     # Given
     charm_configuration["options"]["opensearch-index-name"]["default"] = "index"
@@ -145,8 +145,8 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
     state_out = ctx.run(ctx.on.config_changed(), state_in)
 
     # Then:
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
-    assert "Charm waiting to be integrated with OpenSearch" in status.message
+    assert isinstance(status := state_out.app_status, BlockedStatus)
+    assert "Missing relation with: OpenSearch" in status.message
 
     # Given:
     opensearch_relation = Relation(
@@ -164,7 +164,7 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
     # When:
     state_out = ctx.run(ctx.on.relation_changed(opensearch_relation), state_in)
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()
 
     # Given:
     secrets_manifests_relation = Relation(endpoint="secrets", interface="kubernetes_manifest")
@@ -175,7 +175,7 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
     state_out = ctx.run(ctx.on.relation_changed(secrets_manifests_relation), state_in)
 
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()
     # Make sure the manifest is generated
     kubernetes_manifests = state_out.get_relation(secrets_manifests_relation.id).local_app_data[
         "kubernetes_manifests"

@@ -24,7 +24,7 @@ def test_charm_blocked_on_start(base_state: State):
     # When:
     state_out = ctx.run(ctx.on.start(), state_in)
     # Then:
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
+    assert isinstance(status := state_out.app_status, BlockedStatus)
     assert "Missing config(s): 'profile'" in status.message
 
 
@@ -44,4 +44,4 @@ def test_charm_start_ok(base_state: State, charm_configuration: dict):
     # When:
     state_out = ctx.run(ctx.on.start(), state_in)
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()

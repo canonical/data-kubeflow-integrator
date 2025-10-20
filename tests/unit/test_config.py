@@ -38,7 +38,7 @@ def test_invalid_profile(charm_configuration: dict, base_state: State, invalid_p
     state_out = ctx.run(ctx.on.start(), state_in)
     # Then:
 
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
+    assert isinstance(status := state_out.app_status, BlockedStatus)
     assert "Invalid config(s): 'profile'" in status.message
 
 
@@ -61,8 +61,8 @@ def test_charm_blocked_on_opensearch_index_specified(charm_configuration: dict, 
     state_out = ctx.run(ctx.on.start(), state_in)
     # Then:
 
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
-    assert "Charm waiting to be integrated with OpenSearch" in status.message
+    assert isinstance(status := state_out.app_status, BlockedStatus)
+    assert "Missing relation with: OpenSearch" in status.message
 
 
 def test_config_changed(charm_configuration: dict, base_state: State):
@@ -81,7 +81,7 @@ def test_config_changed(charm_configuration: dict, base_state: State):
     # When:
     state_out = ctx.run(ctx.on.start(), state_in)
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()
 
     # When
     charm_configuration["options"]["profile"]["default"] = " profile "
@@ -90,7 +90,7 @@ def test_config_changed(charm_configuration: dict, base_state: State):
     state_out = ctx.run(ctx.on.config_changed(), state_out)
 
     # Then:
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
+    assert isinstance(status := state_out.app_status, BlockedStatus)
     assert "Invalid config(s): 'profile'" in status.message
 
     # When:
@@ -99,7 +99,7 @@ def test_config_changed(charm_configuration: dict, base_state: State):
     state_out = ctx.run(ctx.on.config_changed(), state_out)
 
     # Then:
-    assert isinstance(status := state_out.unit_status, BlockedStatus)
+    assert isinstance(status := state_out.app_status, BlockedStatus)
     assert "Missing config(s): 'profile'" in status.message
 
     # When:
@@ -109,4 +109,4 @@ def test_config_changed(charm_configuration: dict, base_state: State):
     state_out = ctx.run(ctx.on.config_changed(), state_out)
 
     # Then:
-    assert state_out.unit_status == ActiveStatus()
+    assert state_out.app_status == ActiveStatus()

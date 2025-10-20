@@ -129,23 +129,25 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
         status_list = []
+        if scope == "app":
+            try:
+                ProfileConfig(**self.state.charm.config)
+            except ValidationError as err:
+                missing = [
+                    str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
+                ]
+                invalid = [
+                    str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
+                ]
 
-        try:
-            ProfileConfig(**self.state.charm.config)
-        except ValidationError as err:
-            missing = [
-                str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
-            ]
-            invalid = [
-                str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
-            ]
+                if missing:
+                    status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
+                if invalid:
+                    status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
 
-            if missing:
-                status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
-            if invalid:
-                status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
-
-        return status_list or [CharmStatuses.ACTIVE_IDLE.value]
+            return status_list or [CharmStatuses.ACTIVE_IDLE.value]
+        else:
+            return [CharmStatuses.ACTIVE_IDLE.value]
 
     @property
     def manifests_secret_wrapper(self):

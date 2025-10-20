@@ -7,7 +7,7 @@ from pathlib import Path
 
 import jubilant
 import yaml
-from helpers import OPENSEARCH_MODEL_CONFIG, get_application_data
+from helpers import OPENSEARCH_MODEL_CONFIG, get_application_data, json, send_request
 
 logger = logging.getLogger(__name__)
 
@@ -46,19 +46,15 @@ def test_deploy_and_config_opensearch(juju: jubilant.Juju, kubeflow_integrator: 
 
     # Assert:
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status) and jubilant.all_agents_idle(status), delay=5
+        lambda status: jubilant.any_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        and jubilant.all_agents_idle(status),
+        delay=5,
     )
 
     # Assert:
     assert (
-        "Charm waiting to be integrated with OpenSearch"
+        "Missing relation with: OpenSearch"
         in status.apps[KUBEFLOW_INTEGRATOR_APP_NAME].app_status.message
-    )
-    assert (
-        "Charm waiting to be integrated with OpenSearch"
-        in status.apps[KUBEFLOW_INTEGRATOR_APP_NAME]
-        .units[f"{KUBEFLOW_INTEGRATOR_APP_NAME}/0"]
-        .workload_status.message
     )
 
 
@@ -95,6 +91,7 @@ def test_integrate_with_opensearch(juju: jubilant.Juju):
         and jubilant.all_agents_idle(
             status, OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME
         ),
+        timeout=1600,
         delay=5,
     )
 
@@ -118,6 +115,25 @@ def test_integrate_with_opensearch(juju: jubilant.Juju):
     opensearch_rel_data = list(relation_data.items())[0][1]
     assert "index" in opensearch_rel_data["data"]
     assert "secret-user" in opensearch_rel_data
+    data = json.loads(opensearch_rel_data["data"])
+    # Run request to opensearch to validate the credentials
+    index = data["index"]
+    secret_tls_id = opensearch_rel_data["secret-tls"]
+    secret_user_id = opensearch_rel_data["secret-user"]
+    opensearch_tls = juju.show_secret(secret_tls_id, reveal=True)
+    opensearch_creds = juju.show_secret(secret_user_id, reveal=True)
+
+    credentials = {
+        **opensearch_creds.content,
+        **opensearch_tls.content,
+    }
+    response = send_request(
+        "GET",
+        endpoints=opensearch_rel_data["endpoints"],
+        http_path=f"_list/indices/{index}",
+        credentials=credentials,
+    )
+    assert response.status_code == 200
 
 
 def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
@@ -144,7 +160,7 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
     # Wait for kubeflow-integrator to be blocked
     logger.info("Waiting for kubeflow-integrator to be blocked since a config option is missing")
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        lambda status: jubilant.any_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
         and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME),
         delay=5,
     )
@@ -152,10 +168,4 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
     assert (
         "Missing config(s): 'opensearch-index-name'"
         in status.apps[KUBEFLOW_INTEGRATOR_APP_NAME].app_status.message
-    )
-    assert (
-        "Missing config(s): 'opensearch-index-name'"
-        in status.apps[KUBEFLOW_INTEGRATOR_APP_NAME]
-        .units[f"{KUBEFLOW_INTEGRATOR_APP_NAME}/0"]
-        .workload_status.message
     )

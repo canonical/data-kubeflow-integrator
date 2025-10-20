@@ -39,6 +39,7 @@ ops = { version = ">=2.18.0", extras = ["testing"] }
 [tool.poetry.group.integration.dependencies]
 pytest = "^8.1.1"
 jubilant = "^1.0.0"
+requests = "^2.32.5"
 allure-pytest = "^2.15.0"
 allure-pytest-default-results = "^0.1.3"
 

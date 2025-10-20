@@ -20,7 +20,7 @@ class CharmStatuses(Enum):
         """Integration with Opensearch is required."""
         return StatusObject(
             status="blocked",
-            message="Charm waiting to be integrated with OpenSearch Charm",
+            message="Missing relation with: OpenSearch",
             action="Integrate with an OpenSearch Charm",
         )
 

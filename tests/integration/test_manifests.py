@@ -35,10 +35,14 @@ RESOURCE_DISPATCHER_APP_NAME = "resource-dispatcher"
 RESOURCE_DISPATCHER_CHANNEL = "latest/edge"
 
 
-def test_integrate_with_resource_dispatcher(
+def test_integrate_kubeflow_with_resource_dispatcher(
     juju: jubilant.Juju, microk8s_model: str, kubeflow_integrator: str
 ):
-    """Test deploying the kuebflow-integrator charm and resource dispatcher, integrate them and validate all active."""
+    """Tesing the integration between kubeflow-integration and resource disptacher.
+
+    Test deploying the kubeflow-integrator charm and resource dispatcher, integrate
+    them and validate all active.
+    """
     # save the temp_model
     temp_model = juju.model
     # Switch to the k8s model
@@ -112,16 +116,22 @@ def test_integrate_with_resource_dispatcher(
                 get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "secrets").items()
             )[0]
             assert secrets_rel_data[1] == {}
+            assert "kubernetes_manifests" not in secrets_rel_data[1]
             poddefaults_rel_data = list(
                 get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "pod-defaults").items()
             )[0]
             assert poddefaults_rel_data[1] == {}
+            assert "kubernetes_manifests" not in poddefaults_rel_data[1]
 
     juju.model = temp_model
 
 
 def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_model: str):
-    """Deploy opensearch, integrate it with kubeflow-integrator and make sure that manifests are generated in the relation data."""
+    """Tesing Manifests Generation when related to OpenSearch.
+
+    Deploy opensearch, integrate it with kubeflow-integrator and make sure that
+    manifests are generated in the relation data.
+    """
     temp_model = juju.model
     # Deploy opensearch and self-signed-certificates
     logger.info("Deploying OpenSearch charm")
@@ -149,6 +159,7 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
         lambda status: jubilant.all_active(status, OPENSEARCH_APP_NAME)
         and jubilant.all_agents_idle(status, OPENSEARCH_APP_NAME),
         delay=5,
+        timeout=1600,
     )
 
     logger.info("Integrate opensearch with kubeflow-integrator")
@@ -159,6 +170,7 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
         lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
         and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME),
         delay=5,
+        timeout=1600,
     )
 
     # Switch to k8s model
