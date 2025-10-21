@@ -133,6 +133,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             try:
                 ProfileConfig(**self.state.charm.config)
             except ValidationError as err:
+                self.logger.error(f"A validation error occurred {err}")
                 missing = [
                     str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
                 ]

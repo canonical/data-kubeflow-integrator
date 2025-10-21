@@ -159,7 +159,7 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
         lambda status: jubilant.all_active(status, OPENSEARCH_APP_NAME)
         and jubilant.all_agents_idle(status, OPENSEARCH_APP_NAME),
         delay=5,
-        timeout=1600,
+        timeout=600,
     )
 
     logger.info("Integrate opensearch with kubeflow-integrator")
@@ -170,7 +170,7 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
         lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
         and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME),
         delay=5,
-        timeout=1600,
+        timeout=600,
     )
 
     # Switch to k8s model

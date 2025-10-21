@@ -91,7 +91,7 @@ def test_integrate_with_opensearch(juju: jubilant.Juju):
         and jubilant.all_agents_idle(
             status, OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME
         ),
-        timeout=1600,
+        timeout=600,
         delay=5,
     )
 
