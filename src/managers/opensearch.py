@@ -47,33 +47,45 @@ class OpenSearchManager(ManagerStatusProtocol, WithLogging):
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
-        status_list = []
+        if scope == "app":
+            # Show error status on app only
+            status_list = []
 
-        opensearch_config = None
+            opensearch_config = None
 
-        try:
-            opensearch_config = OpenSearchConfig(**self.state.charm.config)
-        except ValidationError as err:
-            self.logger.warning(str(err))
+            try:
+                opensearch_config = OpenSearchConfig(**self.state.charm.config)
+            except ValidationError as err:
+                self.logger.warning(str(err))
 
-            # If opensearch is related
-            if len(self.opensearch_requirer.relations) > 0:
-                missing = [
-                    str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
-                ]
-                invalid = [
-                    str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
-                ]
+                # If opensearch is related
+                if len(self.opensearch_requirer.relations) > 0:
+                    missing = [
+                        str(error["loc"][0])
+                        for error in err.errors()
+                        if error["type"] == "missing"
+                    ]
+                    invalid = [
+                        str(error["loc"][0])
+                        for error in err.errors()
+                        if error["type"] != "missing"
+                    ]
 
-                if missing:
-                    status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
-                if invalid:
-                    status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
-        if opensearch_config and not self.is_opensearch_related:
-            # Block the charm since we need the integration with opensearch
-            status_list.append(CharmStatuses.missing_integration_with_opensearch())
+                    if missing:
+                        status_list.append(
+                            ConfigStatuses.missing_config_parameters(fields=missing)
+                        )
+                    if invalid:
+                        status_list.append(
+                            ConfigStatuses.invalid_config_parameters(fields=invalid)
+                        )
+            if opensearch_config and not self.is_opensearch_related:
+                # Block the charm since we need the integration with opensearch
+                status_list.append(CharmStatuses.missing_integration_with_opensearch())
 
-        return status_list or [CharmStatuses.ACTIVE_IDLE.value]
+            return status_list or [CharmStatuses.ACTIVE_IDLE.value]
+        else:
+            return [CharmStatuses.ACTIVE_IDLE.value]
 
     @property
     def opensearch_requirer(self) -> OpenSearchRequires:
