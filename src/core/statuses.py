@@ -24,6 +24,33 @@ class CharmStatuses(Enum):
             action="Integrate with an OpenSearch Charm",
         )
 
+    @staticmethod
+    def missing_integration_with_mysql() -> StatusObject:
+        """Integration with Mysql is required."""
+        return StatusObject(
+            status="blocked",
+            message="Missing relation with: Mysql",
+            action="Integrate with a Mysql Charm",
+        )
+
+    @staticmethod
+    def missing_integration_with_postgresql() -> StatusObject:
+        """Integration with Postgresql is required."""
+        return StatusObject(
+            status="blocked",
+            message="Missing relation with: Postgresql",
+            action="Integrate with a Mongodb Charm",
+        )
+
+    @staticmethod
+    def missing_integration_with_mongodb() -> StatusObject:
+        """Integration with Mongodb is required."""
+        return StatusObject(
+            status="blocked",
+            message="Missing relation with: Mongodb",
+            action="Integrate with a Mongodb Charm",
+        )
+
 
 class ConfigStatuses(Enum):
     """Status objects related to config options."""

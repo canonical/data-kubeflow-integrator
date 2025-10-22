@@ -9,6 +9,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from charms.data_platform_libs.v0.data_interfaces import (
+    DatabaseCreatedEvent,
+    DatabaseEntityCreatedEvent,
+    DatabaseRequires,
     IndexCreatedEvent,
     IndexEntityCreatedEvent,
     OpenSearchRequires,
@@ -23,7 +26,10 @@ from ops import (
 from ops.charm import ConfigChangedEvent
 
 from constants import (
+    MYSQL_RELATION_NAME,
+    MONGODB_RELATION_NAME,
     OPENSEARCH_RELATION_NAME,
+    POSTGRESQL_RLEATION_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
@@ -54,6 +60,30 @@ class GeneralEventsHandler(Object, WithLogging):
             getattr(self.state.opensearch_config, "index_name", ""),
             extra_user_roles=getattr(self.state.opensearch_config, "extra_user_roles", ""),
         )
+        self.postgresql = DatabaseRequires(
+            self.charm,
+            relation_name=POSTGRESQL_RLEATION_NAME,
+            database_name=getattr(self.state.postgresql_config, "database_name", ""),
+            extra_user_roles=getattr(self.state.postgresql_config, "extra_user_roles", ""),
+        )
+        self.mysql = DatabaseRequires(
+            self.charm,
+            relation_name=MYSQL_RELATION_NAME,
+            database_name=getattr(self.state.mysql_config, "database_name", ""),
+            extra_user_roles=getattr(self.state.mysql_config, "extra_user_roles", ""),
+        )
+        self.mongodb = DatabaseRequires(
+            self.charm,
+            relation_name=MONGODB_RELATION_NAME,
+            database_name=getattr(self.state.mysql_config, "database_name", ""),
+            extra_user_roles=getattr(self.state.mysql_config, "extra_user_roles", ""),
+        )
+        for database in [self.postgresql, self.mysql, self.mongodb]:
+            self.framework.observe(database.on.database_created, self._on_database_created)
+            self.framework.observe(
+                database.on.database_entity_created, self._on_database_entity_created
+            )
+
         # opensearch
         self.framework.observe(self.opensearch.on.index_created, self._on_index_created)
         self.framework.observe(self.opensearch.on.index_entity_created, self._on_entity_created)
@@ -102,6 +132,16 @@ class GeneralEventsHandler(Object, WithLogging):
         # TODO: Reconcile other Data Platform databases
 
         self.charm.manifests_manager.send_manifests(reconciled_manifests)
+
+    def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
+        """Event triggered when a database is created for either mysql/postgresql/mongodb."""
+        self.logger.debug(f"Database credentials are received: {event.username}")
+        print(event)
+
+    def _on_database_entity_created(self, event: DatabaseEntityCreatedEvent) -> None:
+        """Event triggered when a database entity is created for either mysql/postgresql/mongodb."""
+        self.logger.debug(f"Database entity credentials are received: {event.entity_name}")
+        print(event)
 
     def _on_index_created(self, event: IndexCreatedEvent) -> None:
         """Event triggered when an index is created for this application."""

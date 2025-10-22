@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from abc import ABC
 import re
 from typing import Annotated, Any
 
@@ -67,7 +68,7 @@ class OpenSearchConfig(BaseConfigModel):
     @model_validator(mode="before")
     @classmethod
     def remove_value_if_none(cls, data: Any) -> Any:
-        """Remove value of profile if the value is None to show missing config."""
+        """Remove value of index_name if the value is None to show missing config."""
         if isinstance(data, dict):
             if "opensearch-index-name" in data:
                 if data["opensearch-index-name"] is None:
@@ -94,42 +95,72 @@ class KafkaConfig(BaseConfigModel):
 class MongoDbConfig(BaseConfigModel):
     """Model for MongoDb configuration."""
 
-    mongodb_database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         alias="mongodb-database-name"
     )
 
-    mongodb_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="mongodb-extra-user-roles"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of database_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "mongodb_database_name" in data:
+                if data["mongodb_database_name"] is None:
+                    data.pop("mongodb_database_name")
+        return data
 
 
 class MysqlConfig(BaseConfigModel):
     """Model for Mysql configuration."""
 
-    mysql_database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         alias="mysql-database-name"
     )
 
-    mysql_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="mysql-extra-user-roles"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of database_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "mysql_database_name" in data:
+                if data["mysql_database_name"] is None:
+                    data.pop("mysql_database_name")
+        return data
 
 
 class PostgresqlConfig(BaseConfigModel):
     """Model for Postgresql configuration."""
 
-    postrgesql_database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         alias="postgresql-database-name"
     )
 
-    postgresql_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = (
-        Field(None, alias="postgresql-extra-user-roles")
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+        None, alias="postgresql-extra-user-roles"
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of database_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "postgresql_database_name" in data:
+                if data["postgresql_database_name"] is None:
+                    data.pop("postgresql_database_name")
+        return data
 
-class SparkConfig(BaseConfigModel):
-    """Model for Spark configuration."""
 
-    spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
-        alias="spark-service-account"
-    )
+# class SparkConfig(BaseConfigModel):
+# """Model for Spark configuration."""
+
+# spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+# alias="spark-service-account"
+# )
