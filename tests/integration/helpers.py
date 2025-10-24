@@ -146,20 +146,15 @@ class K8sPodDefault(BaseModel):
     spec: K8sPodDefaultSpec
 
 
-def validate_k8s_secret(
-    manifest: dict, keys_values_to_check: dict[str, str] | None = None
-) -> bool:
+def validate_k8s_secret(manifest: dict) -> K8sSecret:
     """Validate that the manifest is a kubernetes secret manifest."""
     try:
         secret = K8sSecret(**manifest)
-        if keys_values_to_check:
-            for key, value in keys_values_to_check.items():
-                assert secret.data[key] == value
-        return True
+        return secret
     except ValidationError as e:
         logger.error("Validation Error of kubernetes secret")
         logger.error(e)
-        return False
+        raise e
 
 
 def validate_k8s_poddefault(manifest: dict) -> bool:
