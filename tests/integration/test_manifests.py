@@ -189,7 +189,9 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
     assert "kubernetes_manifests" in secrets_rel_data[1]
     secrets_k8s_manifests = json.loads(secrets_rel_data[1]["kubernetes_manifests"])
     for secret_manifest in secrets_k8s_manifests:
-        validate_k8s_secret(secret_manifest, keys_values_to_check={"index": "index-name"})
+        validate_k8s_secret(
+            secret_manifest, keys_values_to_check={"OPENSEARCH_INDEX": "index-name"}
+        )
 
     assert "kubernetes_manifests" in poddefaults_rel_data[1]
     poddefaults_k8s_manifests = json.loads(poddefaults_rel_data[1]["kubernetes_manifests"])

@@ -108,7 +108,7 @@ class K8sSecret(BaseModel):
     api_version: str = Field("v1", alias="apiVersion")
     kind: str = Field("Secret")
     metadata: K8sMetadata
-    string_data: dict[str, str] = Field(alias="stringData")
+    data: dict[str, str] = Field(alias="data")
 
 
 class EnvValueFromSecret(BaseModel):
@@ -154,7 +154,7 @@ def validate_k8s_secret(
         secret = K8sSecret(**manifest)
         if keys_values_to_check:
             for key, value in keys_values_to_check.items():
-                assert secret.string_data[key] == value
+                assert secret.data[key] == value
         return True
     except ValidationError as e:
         logger.error("Validation Error of kubernetes secret")
