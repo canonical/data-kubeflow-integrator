@@ -47,7 +47,7 @@ class CharmStatuses(Enum):
         """Integration with Mongodb is required."""
         return StatusObject(
             status="blocked",
-            message="Missing relation with: Mongodb",
+            message="Missing relation with: MongoDB",
             action="Integrate with a Mongodb Charm",
         )
 

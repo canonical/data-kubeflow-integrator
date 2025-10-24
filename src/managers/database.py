@@ -38,7 +38,6 @@ class DatabaseManager(WithLogging, ABC):
         if self.is_database_related and self.database_active:
             # Fetch credentials
             database_creds = list(self.database_requirer.fetch_relation_data().values())[0]
-            print(f"Database credentials {database_creds}")
             return self.state.charm.manifests_manager.reconcile_database_manifests(
                 database_creds, self.name
             )

@@ -152,7 +152,6 @@ class GeneralEventsHandler(Object, WithLogging):
             mysql_manifests = self.charm.mysql_manager.generate_manifests()
             mongodb_manifests = self.charm.mongodb_manager.generate_manifests()
             kafka_manifests = self.charm.kafka_manager.generate_manifests()
-            print(kafka_manifests)
             reconciled_manifests = (
                 reconciled_manifests
                 + opensearch_manifests

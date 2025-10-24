@@ -42,7 +42,6 @@ class KafkaManager(ManagerStatusProtocol, WithLogging):
         if self.is_kafka_related and self.topic_active:
             # Fetch credentials
             kafka_creds = list(self.kafka_requirer.fetch_relation_data().values())[0]
-            print(kafka_creds)
             return self.state.charm.manifests_manager.reconcile_database_manifests(
                 kafka_creds, KAFKA
             )

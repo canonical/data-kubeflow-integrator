@@ -41,7 +41,6 @@ class OpenSearchManager(ManagerStatusProtocol, WithLogging):
         if self.is_opensearch_related and self.index_active:
             # Fetch credentials
             opensearch_creds = list(self.opensearch_requirer.fetch_relation_data().values())[0]
-            print("Generating opensearch manifests")
             return self.state.charm.manifests_manager.reconcile_database_manifests(
                 opensearch_creds, OPENSEARCH
             )
