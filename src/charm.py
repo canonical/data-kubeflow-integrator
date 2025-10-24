@@ -11,6 +11,7 @@ from data_platform_helpers.advanced_statuses.handler import StatusHandler
 
 from core.state import GlobalState
 from events.general import GeneralEventsHandler
+from managers.kafka import KafkaManager
 from managers.manifests import KubernetesManifestsManager
 from managers.mongodb import MongodbManager
 from managers.mysql import MysqlManager
@@ -31,6 +32,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
 
         # Managers
         self.opensearch_manager = OpenSearchManager(self.state)
+        self.kafka_manager = KafkaManager(self.state)
         self.mysql_manager = MysqlManager(self.state)
         self.postgresql_manager = PostgresqlManager(self.state)
         self.mongodb_manager = MongodbManager(self.state)
@@ -39,6 +41,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
         self.status = StatusHandler(  # priority order
             self,
             self.manifests_manager,
+            self.kafka_manager,
             self.opensearch_manager,
             self.mysql_manager,
             self.postgresql_manager,

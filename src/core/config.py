@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-from abc import ABC
 import re
 from typing import Annotated, Any
 
@@ -79,17 +78,27 @@ class OpenSearchConfig(BaseConfigModel):
 class KafkaConfig(BaseConfigModel):
     """Model for the Kafka configuration."""
 
-    kafka_topic_name: Annotated[
+    topic_name: Annotated[
         str | None, BeforeValidator(nullify_empty_string), AfterValidator(validate_topic_name)
     ] = Field(alias="kafka-topic-name")
 
-    kafka_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="kafka-extra-user-roles"
     )
 
-    kafka_consumer_group_prefix: Annotated[str | None, BeforeValidator(nullify_empty_string)] = (
-        Field(None, alias="kafka-consumer-group-prefix")
+    consumer_group_prefix: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+        None, alias="kafka-consumer-group-prefix"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of topic_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "kafka-topic-name" in data:
+                if data["kafka-topic-name"] is None:
+                    data.pop("kafka-topic-name")
+        return data
 
 
 class MongoDbConfig(BaseConfigModel):

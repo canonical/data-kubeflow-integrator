@@ -14,7 +14,10 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseRequires,
     IndexCreatedEvent,
     IndexEntityCreatedEvent,
+    KafkaRequires,
     OpenSearchRequires,
+    TopicCreatedEvent,
+    TopicEntityCreatedEvent,
 )
 from charms.resource_dispatcher.v0.kubernetes_manifests import (
     KubernetesManifestRequirerWrapper,  # type: ignore
@@ -26,11 +29,12 @@ from ops import (
 from ops.charm import ConfigChangedEvent
 
 from constants import (
-    MYSQL_RELATION_NAME,
+    KAFKA_RELATION_NAME,
     MONGODB_RELATION_NAME,
+    MYSQL_RELATION_NAME,
     OPENSEARCH_RELATION_NAME,
-    POSTGRESQL_RLEATION_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+    POSTGRESQL_RLEATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
 )
@@ -60,6 +64,14 @@ class GeneralEventsHandler(Object, WithLogging):
             getattr(self.state.opensearch_config, "index_name", ""),
             extra_user_roles=getattr(self.state.opensearch_config, "extra_user_roles", ""),
         )
+        self.kafka = KafkaRequires(
+            self.charm,
+            relation_name=KAFKA_RELATION_NAME,
+            topic=getattr(self.state.kafka_config, "topic_name", ""),
+            extra_user_roles=getattr(self.state.kafka_config, "extra_user_roles", ""),
+            consumer_group_prefix=getattr(self.state.kafka_config, "consumer_group_prefix", ""),
+        )
+
         self.postgresql = DatabaseRequires(
             self.charm,
             relation_name=POSTGRESQL_RLEATION_NAME,
@@ -86,9 +98,17 @@ class GeneralEventsHandler(Object, WithLogging):
 
         # opensearch
         self.framework.observe(self.opensearch.on.index_created, self._on_index_created)
-        self.framework.observe(self.opensearch.on.index_entity_created, self._on_entity_created)
+        self.framework.observe(
+            self.opensearch.on.index_entity_created, self._on_index_entity_created
+        )
         self.framework.observe(
             self.charm.on[OPENSEARCH_RELATION_NAME].relation_broken, self._on_relation_broken
+        )
+        # kafka
+        self.framework.observe(self.kafka.on.topic_created, self._on_topic_created)
+        self.framework.observe(self.kafka.on.topic_entity_created, self._on_topic_entity_created)
+        self.framework.observe(
+            self.charm.on[KAFKA_RELATION_NAME].relation_broken, self._on_relation_broken
         )
 
         # resource-dispatcher manifests
@@ -128,7 +148,20 @@ class GeneralEventsHandler(Object, WithLogging):
         if self.charm.manifests_manager.is_manifests_provider_related:
             # Reconcile opensearch manifests
             opensearch_manifests = self.charm.opensearch_manager.generate_manifests()
-            reconciled_manifests = reconciled_manifests + opensearch_manifests
+            postgresql_manifests = self.charm.postgresql_manager.generate_manifests()
+            mysql_manifests = self.charm.mysql_manager.generate_manifests()
+            mongodb_manifests = self.charm.mongodb_manager.generate_manifests()
+            kafka_manifests = self.charm.kafka_manager.generate_manifests()
+            print(kafka_manifests)
+            reconciled_manifests = (
+                reconciled_manifests
+                + opensearch_manifests
+                + postgresql_manifests
+                + mysql_manifests
+                + mongodb_manifests
+                + kafka_manifests
+            )
+
         # TODO: Reconcile other Data Platform databases
 
         self.charm.manifests_manager.send_manifests(reconciled_manifests)
@@ -136,19 +169,29 @@ class GeneralEventsHandler(Object, WithLogging):
     def _on_database_created(self, event: DatabaseCreatedEvent) -> None:
         """Event triggered when a database is created for either mysql/postgresql/mongodb."""
         self.logger.debug(f"Database credentials are received: {event.username}")
-        print(event)
+        self._on_config_changed(event)
 
     def _on_database_entity_created(self, event: DatabaseEntityCreatedEvent) -> None:
         """Event triggered when a database entity is created for either mysql/postgresql/mongodb."""
         self.logger.debug(f"Database entity credentials are received: {event.entity_name}")
-        print(event)
+        self._on_config_changed(event)
 
     def _on_index_created(self, event: IndexCreatedEvent) -> None:
         """Event triggered when an index is created for this application."""
         self.logger.debug(f"OpenSearch credentials are received: {event.username}")
         self._on_config_changed(event)
 
-    def _on_entity_created(self, event: IndexEntityCreatedEvent) -> None:
+    def _on_index_entity_created(self, event: IndexEntityCreatedEvent) -> None:
+        """Event triggered when an entity is created for this application."""
+        self.logger.debug(f"Entity credentials are received: {event.entity_name}")
+        self._on_config_changed(event)
+
+    def _on_topic_created(self, event: TopicCreatedEvent) -> None:
+        """Event triggered when a topic is created for this application."""
+        self.logger.debug(f"Topic is created and credentials received {event.username}")
+        self._on_config_changed(event)
+
+    def _on_topic_entity_created(self, event: TopicEntityCreatedEvent) -> None:
         """Event triggered when an entity is created for this application."""
         self.logger.debug(f"Entity credentials are received: {event.entity_name}")
         self._on_config_changed(event)
@@ -168,7 +211,20 @@ class GeneralEventsHandler(Object, WithLogging):
             # route the config change to appropriate handler
             self.charm.opensearch_manager.update_relation_data()
 
-        # TODO: Add handlers for other DataPlatform databases
+        if self.state.postgresql_config and not self.charm.postgresql_manager.database_active:
+            # route the config change to postgresql manager
+            self.charm.postgresql_manager.update_relation_data()
+
+        if self.state.mysql_config and not self.charm.mysql_manager.database_active:
+            # route the config change to mysql manager
+            self.charm.mysql_manager.update_relation_data()
+
+        if self.state.mongodb_config and not self.charm.mongodb_manager.database_active:
+            # route the config change to mongodb manager
+            self.charm.mongodb_manager.update_relation_data()
+        if self.state.kafka_config and not self.charm.kafka_manager.topic_active:
+            # route the config change to mongodb manager
+            self.charm.kafka_manager.update_relation_data()
 
         # reconcile manifests
         self._on_manifests_relation_change(event)

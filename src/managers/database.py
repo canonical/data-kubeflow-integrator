@@ -5,6 +5,7 @@
 """Manager for mysql/postgresql/mongodb related tasks."""
 
 from abc import ABC, abstractmethod
+
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 
 from core.config import MongoDbConfig, MysqlConfig, PostgresqlConfig
@@ -12,15 +13,15 @@ from core.state import GlobalState
 from utils.k8s_models import ReconciledManifests
 from utils.logging import WithLogging
 
-
 DatabaseConfig = MysqlConfig | PostgresqlConfig | MongoDbConfig
 
 
 class DatabaseManager(WithLogging, ABC):
     """Abstract Manager for mysql/mongodb/postgresql relation."""
 
-    def __init__(self, state: GlobalState):
+    def __init__(self, state: GlobalState, name: str):
         self.state = state
+        self.name = name
 
     def update_relation_data(self) -> None:
         """Update opensearch relation data with latest config."""
@@ -36,10 +37,12 @@ class DatabaseManager(WithLogging, ABC):
         """Generate kubernetes manifesets for the current credentials."""
         if self.is_database_related and self.database_active:
             # Fetch credentials
-            opensearch_creds = list(self.database_requirer.fetch_relation_data().values())[0]
-            return self.state.charm.manifests_manager.reconcile_opensearch_manifests(
-                opensearch_creds
+            database_creds = list(self.database_requirer.fetch_relation_data().values())[0]
+            print(f"Database credentials {database_creds}")
+            return self.state.charm.manifests_manager.reconcile_database_manifests(
+                database_creds, self.name
             )
+
         return ReconciledManifests()
 
     @property

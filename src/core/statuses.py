@@ -39,7 +39,7 @@ class CharmStatuses(Enum):
         return StatusObject(
             status="blocked",
             message="Missing relation with: Postgresql",
-            action="Integrate with a Mongodb Charm",
+            action="Integrate with a Postgresql Charm",
         )
 
     @staticmethod
@@ -49,6 +49,15 @@ class CharmStatuses(Enum):
             status="blocked",
             message="Missing relation with: Mongodb",
             action="Integrate with a Mongodb Charm",
+        )
+
+    @staticmethod
+    def missing_integration_with_kafka() -> StatusObject:
+        """Integration with Kafka is required."""
+        return StatusObject(
+            status="blocked",
+            message="Missing relation with: Kafka",
+            action="Integrate with a Kafka Charm",
         )
 
 

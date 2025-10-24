@@ -20,6 +20,7 @@ from constants import (
     STATUS_PEERS_RELATION_NAME,
 )
 from core.config import (
+    KafkaConfig,
     MongoDbConfig,
     MysqlConfig,
     OpenSearchConfig,
@@ -77,9 +78,17 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
 
     @property
     def mongodb_config(self) -> MongoDbConfig | None:
-        """return current configuration of mongodb."""
+        """Return current configuration of mongodb."""
         try:
             return MongoDbConfig(**self.config)
+        except Exception:
+            return None
+
+    @property
+    def kafka_config(self) -> KafkaConfig | None:
+        """Return current configuration kafka."""
+        try:
+            return KafkaConfig(**self.config)
         except Exception:
             return None
 
