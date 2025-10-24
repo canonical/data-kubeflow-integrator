@@ -6,6 +6,7 @@ import dataclasses
 from pathlib import Path
 
 import yaml
+import base64
 from charms.data_platform_libs.v0.data_models import json
 from ops import ActiveStatus, BlockedStatus, testing
 from ops.testing import Relation, State
@@ -114,8 +115,13 @@ def test_charm_generate_secret_manifests_when_integrated(
     assert generated_secret["apiVersion"] == "v1"
     assert generated_secret["kind"] == "Secret"
 
-    assert generated_secret["stringData"]["username"] == "user-test"
-    assert generated_secret["stringData"]["password"] == "user-password"
+    assert (
+        generated_secret["data"]["OPENSEARCH_USERNAME"] == base64.b64encode(b"user-test").decode()
+    )
+    assert (
+        generated_secret["data"]["OPENSEARCH_PASSWORD"]
+        == base64.b64encode(b"user-password").decode()
+    )
 
 
 def test_charm_generate_no_namespace_secret_manifests_when_integrated(
@@ -185,6 +191,11 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
     assert generated_secret["apiVersion"] == "v1"
     assert generated_secret["kind"] == "Secret"
 
-    assert generated_secret["stringData"]["username"] == "user-test"
-    assert generated_secret["stringData"]["password"] == "user-password"
+    assert (
+        generated_secret["data"]["OPENSEARCH_USERNAME"] == base64.b64encode(b"user-test").decode()
+    )
+    assert (
+        generated_secret["data"]["OPENSEARCH_PASSWORD"]
+        == base64.b64encode(b"user-password").decode()
+    )
     assert "namespace" not in generated_secret["metadata"]

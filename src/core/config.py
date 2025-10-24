@@ -117,9 +117,9 @@ class MongoDbConfig(BaseConfigModel):
     def remove_value_if_none(cls, data: Any) -> Any:
         """Remove value of database_name if the value is None to show missing config."""
         if isinstance(data, dict):
-            if "mongodb_database_name" in data:
-                if data["mongodb_database_name"] is None:
-                    data.pop("mongodb_database_name")
+            if "mongodb-database-name" in data:
+                if data["mongodb-database-name"] is None:
+                    data.pop("mongodb-database-name")
         return data
 
 
@@ -139,9 +139,9 @@ class MysqlConfig(BaseConfigModel):
     def remove_value_if_none(cls, data: Any) -> Any:
         """Remove value of database_name if the value is None to show missing config."""
         if isinstance(data, dict):
-            if "mysql_database_name" in data:
-                if data["mysql_database_name"] is None:
-                    data.pop("mysql_database_name")
+            if "mysql-database-name" in data:
+                if data["mysql-database-name"] is None:
+                    data.pop("mysql-database-name")
         return data
 
 
@@ -161,9 +161,9 @@ class PostgresqlConfig(BaseConfigModel):
     def remove_value_if_none(cls, data: Any) -> Any:
         """Remove value of database_name if the value is None to show missing config."""
         if isinstance(data, dict):
-            if "postgresql_database_name" in data:
-                if data["postgresql_database_name"] is None:
-                    data.pop("postgresql_database_name")
+            if "postgresql-database-name" in data:
+                if data["postgresql-database-name"] is None:
+                    data.pop("postgresql-database-name")
         return data
 
 
