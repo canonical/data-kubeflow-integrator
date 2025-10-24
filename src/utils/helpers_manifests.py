@@ -42,7 +42,7 @@ def generate_tls_secret_manifest(
     """Generate TLS secret kubernetes manifest."""
     # Generate a separate secret for tls since this will be mounted as a volume
     # kafka charm sets tls-ca to disabled
-    if "tls-ca" in creds and creds["tls-ca"] and creds["tls-ca"] != "disabled":
+    if creds.get("tls-ca") and creds["tls-ca"] != "disabled":
         tls_data = {
             f"{database_name}_ca.crt": base64.b64encode(creds["tls-ca"].encode()).decode("utf-8")
         }
