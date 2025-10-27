@@ -67,7 +67,7 @@ class OpenSearchConfig(BaseConfigModel):
     @model_validator(mode="before")
     @classmethod
     def remove_value_if_none(cls, data: Any) -> Any:
-        """Remove value of profile if the value is None to show missing config."""
+        """Remove value of index_name if the value is None to show missing config."""
         if isinstance(data, dict):
             if "opensearch-index-name" in data:
                 if data["opensearch-index-name"] is None:
@@ -78,58 +78,98 @@ class OpenSearchConfig(BaseConfigModel):
 class KafkaConfig(BaseConfigModel):
     """Model for the Kafka configuration."""
 
-    kafka_topic_name: Annotated[
+    topic_name: Annotated[
         str | None, BeforeValidator(nullify_empty_string), AfterValidator(validate_topic_name)
     ] = Field(alias="kafka-topic-name")
 
-    kafka_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="kafka-extra-user-roles"
     )
 
-    kafka_consumer_group_prefix: Annotated[str | None, BeforeValidator(nullify_empty_string)] = (
-        Field(None, alias="kafka-consumer-group-prefix")
+    consumer_group_prefix: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+        None, alias="kafka-consumer-group-prefix"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of topic_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "kafka-topic-name" in data:
+                if data["kafka-topic-name"] is None:
+                    data.pop("kafka-topic-name")
+        return data
 
 
 class MongoDbConfig(BaseConfigModel):
     """Model for MongoDb configuration."""
 
-    mongodb_database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         alias="mongodb-database-name"
     )
 
-    mongodb_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="mongodb-extra-user-roles"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of database_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "mongodb-database-name" in data:
+                if data["mongodb-database-name"] is None:
+                    data.pop("mongodb-database-name")
+        return data
 
 
 class MysqlConfig(BaseConfigModel):
     """Model for Mysql configuration."""
 
-    mysql_database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         alias="mysql-database-name"
     )
 
-    mysql_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="mysql-extra-user-roles"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of database_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "mysql-database-name" in data:
+                if data["mysql-database-name"] is None:
+                    data.pop("mysql-database-name")
+        return data
 
 
 class PostgresqlConfig(BaseConfigModel):
     """Model for Postgresql configuration."""
 
-    postrgesql_database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+    database_name: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         alias="postgresql-database-name"
     )
 
-    postgresql_extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = (
-        Field(None, alias="postgresql-extra-user-roles")
+    extra_user_roles: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+        None, alias="postgresql-extra-user-roles"
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of database_name if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "postgresql-database-name" in data:
+                if data["postgresql-database-name"] is None:
+                    data.pop("postgresql-database-name")
+        return data
 
-class SparkConfig(BaseConfigModel):
-    """Model for Spark configuration."""
 
-    spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
-        alias="spark-service-account"
-    )
+# class SparkConfig(BaseConfigModel):
+# """Model for Spark configuration."""
+
+# spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+# alias="spark-service-account"
+# )

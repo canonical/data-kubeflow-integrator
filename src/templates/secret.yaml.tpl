@@ -12,8 +12,8 @@ metadata:
 	{{ key }}: {{ value }}
 	{% endfor %}
     {% endif %}
-
-stringData:
+type: Opaque 
+data:
   {% for key,value in secret.data.items() %}
   {{ key }}: {{ value }}
   {% endfor %}

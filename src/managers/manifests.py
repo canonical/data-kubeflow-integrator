@@ -16,10 +16,9 @@ from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import ValidationError
 
 from constants import (
-    K8S_OPENSEARCH_PODDEFAULT_DESC,
-    K8S_OPENSEARCH_PODDEFAULT_NAME,
-    K8S_OPENSEARCH_PODDEFAULT_SELECTOR_LABEL,
-    K8S_OPENSEARCH_SECRET_NAME,
+    K8S_DATABASE_SECRET_NAME,
+    K8S_DATABASE_TLS_SECRET_NAME,
+    K8S_TLS_MOUNTPATH,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
@@ -27,11 +26,12 @@ from constants import (
 from core.config import ProfileConfig
 from core.state import GlobalState
 from core.statuses import CharmStatuses, ConfigStatuses
+from utils.helpers_manifests import (
+    generate_poddefault_manifest,
+    generate_secret_manifest,
+    generate_tls_secret_manifest,
+)
 from utils.k8s_models import (
-    EnvVarFromSecret,
-    K8sPodDefaultManifestInfo,
-    K8sSecretManifestInfo,
-    PodDefaultEnvVar,
     ReconciledManifests,
 )
 from utils.logging import WithLogging
@@ -54,68 +54,63 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             lstrip_blocks=True,
         )
 
-    def reconcile_opensearch_manifests(self, creds: dict[str, str]) -> ReconciledManifests:
-        """Generate opensearch manifests using credentials and send to resource-dispatcher."""
+    def reconcile_database_manifests(
+        self, creds: dict[str, str], database_name: str
+    ) -> ReconciledManifests:
+        """Generate manifests for OpenSearch/Mysql/Postgresql/Mongodb databases."""
         if not self.state.profile_config:
             self.logger.warning("No specified profile, skipping manifests generation")
             return ReconciledManifests()
 
+        database_secret: KubernetesManifest | None = None
+        tls_secret: KubernetesManifest | None = None
         secrets_manifests: list[KubernetesManifest] = []
-        poddefaults_manifests: list[KubernetesManifest] = []
-        service_accounts_manifests: list[KubernetesManifest] = []
+        poddefault_manifests: list[KubernetesManifest] = []
 
-        # remove data field from the credentials dict
+        # remove data field from the credentials
         if "data" in creds:
             creds.pop("data", None)
 
+        # generate secrets manifests
         if self.is_k8s_secrets_manifests_related:
-            # clean tls certificate field
-            creds["tls-ca"] = creds["tls-ca"].replace("\n", "")
-
-            k8s_secret_info = K8sSecretManifestInfo(
-                name=K8S_OPENSEARCH_SECRET_NAME,
-                namespace=None
-                if self.state.profile_config.profile == "*"
-                else self.state.profile_config.profile,
-                data=creds,
-                labels=None,
+            secret_data = creds.copy()
+            tls_secret = generate_tls_secret_manifest(
+                self.secret_k8s_template,
+                self.state.profile_config.profile,
+                creds,
+                database_name,
             )
-            # generate using jinja
-            rendered = self.secret_k8s_template.render(secret=k8s_secret_info)
-            secrets_manifests.append(KubernetesManifest(rendered))
+            if tls_secret:
+                secrets_manifests.append(tls_secret)
+                # Add a path to the mounted tls
+                secret_data[f"{database_name}_CA_CERT_PATH"] = K8S_TLS_MOUNTPATH
+                # Remove "tls-ca" from creds
+                secret_data.pop("tls-ca")
 
+            database_secret = generate_secret_manifest(
+                self.secret_k8s_template,
+                self.state.profile_config.profile,
+                secret_data,
+                database_name,
+            )
+            secrets_manifests.append(database_secret)
+        # generate pod defaults
         if self.is_k8s_poddefaults_manifests_related:
-            if len(secrets_manifests):
-                poddefault_env_vars = [
-                    PodDefaultEnvVar(
-                        name=key,
-                        secret=EnvVarFromSecret(
-                            secret_name=K8S_OPENSEARCH_SECRET_NAME, secret_key=key
-                        ),
-                    )
-                    for key, _ in creds.items()
-                ]
-            else:
-                poddefault_env_vars = [
-                    PodDefaultEnvVar(name=key, value=value) for key, value in creds.items()
-                ]
-            k8s_poddefault_info = K8sPodDefaultManifestInfo(
-                name=K8S_OPENSEARCH_PODDEFAULT_NAME,
-                namespace=None
-                if self.state.profile_config.profile == "*"
-                else self.state.profile_config.profile,
-                desc=K8S_OPENSEARCH_PODDEFAULT_DESC,
-                selector_name=K8S_OPENSEARCH_PODDEFAULT_SELECTOR_LABEL,
-                env_vars=poddefault_env_vars,
-            )
-            rendered = self.poddefault_k8s_template.render(pod_default=k8s_poddefault_info)
-            poddefaults_manifests.append(KubernetesManifest(rendered))
+            # If a tls-secret was generated, we include the cert path in pod default
+            if tls_secret:
+                creds[f"{database_name}_CA_CERT_PATH"] = K8S_TLS_MOUNTPATH
+                creds.pop("tls-ca")
 
-        return ReconciledManifests(
-            secrets=secrets_manifests,
-            poddefaults=poddefaults_manifests,
-            serviceaccounts=service_accounts_manifests,
-        )
+            poddefault = generate_poddefault_manifest(
+                self.poddefault_k8s_template,
+                self.state.profile_config.profile,
+                creds,
+                database_name,
+                from_secret=K8S_DATABASE_SECRET_NAME[database_name] if database_secret else None,
+                tls_secret=K8S_DATABASE_TLS_SECRET_NAME[database_name] if tls_secret else None,
+            )
+            poddefault_manifests.append(poddefault)
+        return ReconciledManifests(secrets=secrets_manifests, poddefaults=poddefault_manifests)
 
     def send_manifests(self, reconciled_manifests: ReconciledManifests):
         """Send k8s manifests to the manifests provider."""

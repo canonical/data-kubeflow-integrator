@@ -19,7 +19,14 @@ from constants import (
     PEER_RELATION,
     STATUS_PEERS_RELATION_NAME,
 )
-from core.config import OpenSearchConfig, ProfileConfig
+from core.config import (
+    KafkaConfig,
+    MongoDbConfig,
+    MysqlConfig,
+    OpenSearchConfig,
+    PostgresqlConfig,
+    ProfileConfig,
+)
 from utils.logging import WithLogging
 
 if TYPE_CHECKING:
@@ -50,6 +57,38 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         """Return information regarding opensearch config options."""
         try:
             return OpenSearchConfig(**self.config)
+        except Exception:
+            return None
+
+    @property
+    def postgresql_config(self) -> PostgresqlConfig | None:
+        """Return current configuration of postgresql."""
+        try:
+            return PostgresqlConfig(**self.config)
+        except Exception:
+            return None
+
+    @property
+    def mysql_config(self) -> MysqlConfig | None:
+        """Return current configuration of mysql."""
+        try:
+            return MysqlConfig(**self.config)
+        except Exception:
+            return None
+
+    @property
+    def mongodb_config(self) -> MongoDbConfig | None:
+        """Return current configuration of mongodb."""
+        try:
+            return MongoDbConfig(**self.config)
+        except Exception:
+            return None
+
+    @property
+    def kafka_config(self) -> KafkaConfig | None:
+        """Return current configuration kafka."""
+        try:
+            return KafkaConfig(**self.config)
         except Exception:
             return None
 

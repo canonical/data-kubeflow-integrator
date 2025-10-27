@@ -10,6 +10,19 @@ spec:
     matchLabels:
       {{ pod_default.selector_name }}: "true"
   desc: {{ pod_default.desc }}
+  {% if pod_default.secret_volumes %}
+  volumes:
+    {% for volume in pod_default.secret_volumes%}
+    - name: {{ volume.name }}
+      secret:
+        secretName: {{volume.secret_name}}
+    {% endfor %}
+  volumeMounts:
+    {% for volume in pod_default.secret_volumes%}
+    - name: {{ volume.name }}
+      mountPath: {{ volume.mount_path}}
+    {% endfor %}
+  {% endif %}
   env:
   {% for env_var in pod_default.env_vars %}
   - name: {{ env_var.name }}

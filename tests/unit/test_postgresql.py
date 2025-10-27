@@ -19,7 +19,7 @@ METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 
 
 def test_charm_block_when_integrated_with_opensearch(base_state: State, charm_configuration: dict):
-    """Check that charm will be in a blocked status when integrated with openSearch."""
+    """Check that charm will be in a blocked status when integrated with Postgresql."""
     charm_configuration["options"]["profile"]["default"] = "profile-name"
     ctx = testing.Context(
         KubeflowIntegratorCharm,
@@ -36,22 +36,22 @@ def test_charm_block_when_integrated_with_opensearch(base_state: State, charm_co
     assert state_out.unit_status == ActiveStatus()
 
     # Given
-    opensearch_relation = Relation(endpoint="opensearch")
-    relations = state_out.relations.union([opensearch_relation])
+    postgresql_relation = Relation(endpoint="postgresql")
+    relations = state_out.relations.union([postgresql_relation])
     state_in = dataclasses.replace(state_out, relations=relations)
 
     # When
-    state_out = ctx.run(ctx.on.relation_changed(opensearch_relation), state_in)
+    state_out = ctx.run(ctx.on.relation_changed(postgresql_relation), state_in)
 
     # Then:
     assert isinstance(status := state_out.app_status, BlockedStatus)
-    assert "Missing config(s): 'opensearch-index-name'" in status.message
+    assert "Missing config(s): 'postgresql-database-name'" in status.message
 
 
 def test_charm_generate_secret_manifests_when_integrated(
     base_state: State, charm_configuration: dict
 ):
-    """Test that charm will generate manifests when integrated with opensearch and the secrets manifests provider."""
+    """Test that charm will generate manifests when integrated with postgresql and the secrets manifests provider."""
     charm_configuration["options"]["profile"]["default"] = "profile-name"
     ctx = testing.Context(
         KubeflowIntegratorCharm,
@@ -68,7 +68,7 @@ def test_charm_generate_secret_manifests_when_integrated(
     assert state_out.app_status == ActiveStatus()
 
     # Given
-    charm_configuration["options"]["opensearch-index-name"]["default"] = "index"
+    charm_configuration["options"]["postgresql-database-name"]["default"] = "database"
     ctx.config = charm_configuration
     state_in = state_out
     # When:
@@ -76,23 +76,23 @@ def test_charm_generate_secret_manifests_when_integrated(
 
     # Then:
     assert isinstance(status := state_out.app_status, BlockedStatus)
-    assert "Missing relation with: OpenSearch" in status.message
+    assert "Missing relation with: Postgresql" in status.message
 
     # Given:
-    opensearch_relation = Relation(
-        endpoint="opensearch",
+    postgresql_relation = Relation(
+        endpoint="postgresql",
         remote_app_data={
             "username": "user-test",
             "password": "user-password",
-            "index": "index",
+            "database": "database",
             "tls-ca": "",
         },
     )
-    relations = state_out.relations.union([opensearch_relation])
+    relations = state_out.relations.union([postgresql_relation])
     state_in = dataclasses.replace(state_out, relations=relations)
 
     # When:
-    state_out = ctx.run(ctx.on.relation_changed(opensearch_relation), state_in)
+    state_out = ctx.run(ctx.on.relation_changed(postgresql_relation), state_in)
     # Then:
     assert state_out.app_status == ActiveStatus()
 
@@ -116,10 +116,10 @@ def test_charm_generate_secret_manifests_when_integrated(
     assert generated_secret["kind"] == "Secret"
 
     assert (
-        generated_secret["data"]["OPENSEARCH_USERNAME"] == base64.b64encode(b"user-test").decode()
+        generated_secret["data"]["POSTGRESQL_USERNAME"] == base64.b64encode(b"user-test").decode()
     )
     assert (
-        generated_secret["data"]["OPENSEARCH_PASSWORD"]
+        generated_secret["data"]["POSTGRESQL_PASSWORD"]
         == base64.b64encode(b"user-password").decode()
     )
 
@@ -144,7 +144,7 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
     assert state_out.app_status == ActiveStatus()
 
     # Given
-    charm_configuration["options"]["opensearch-index-name"]["default"] = "index"
+    charm_configuration["options"]["postgresql-database-name"]["default"] = "database"
     ctx.config = charm_configuration
     state_in = state_out
     # When:
@@ -152,23 +152,23 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
 
     # Then:
     assert isinstance(status := state_out.app_status, BlockedStatus)
-    assert "Missing relation with: OpenSearch" in status.message
+    assert "Missing relation with: Postgresql" in status.message
 
     # Given:
-    opensearch_relation = Relation(
-        endpoint="opensearch",
+    postgresql_relation = Relation(
+        endpoint="postgresql",
         remote_app_data={
             "username": "user-test",
             "password": "user-password",
-            "index": "index",
+            "database": "database",
             "tls-ca": "",
         },
     )
-    relations = state_out.relations.union([opensearch_relation])
+    relations = state_out.relations.union([postgresql_relation])
     state_in = dataclasses.replace(state_out, relations=relations)
 
     # When:
-    state_out = ctx.run(ctx.on.relation_changed(opensearch_relation), state_in)
+    state_out = ctx.run(ctx.on.relation_changed(postgresql_relation), state_in)
     # Then:
     assert state_out.app_status == ActiveStatus()
 
@@ -192,10 +192,10 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
     assert generated_secret["kind"] == "Secret"
 
     assert (
-        generated_secret["data"]["OPENSEARCH_USERNAME"] == base64.b64encode(b"user-test").decode()
+        generated_secret["data"]["POSTGRESQL_USERNAME"] == base64.b64encode(b"user-test").decode()
     )
     assert (
-        generated_secret["data"]["OPENSEARCH_PASSWORD"]
+        generated_secret["data"]["POSTGRESQL_PASSWORD"]
         == base64.b64encode(b"user-password").decode()
     )
     assert "namespace" not in generated_secret["metadata"]

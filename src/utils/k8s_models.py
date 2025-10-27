@@ -44,6 +44,14 @@ class PodDefaultEnvVar(BaseModel):
         return self
 
 
+class PodDefaultSecretVolume(BaseModel):
+    """Structured model for volumes mounted on pods from secrets."""
+
+    name: str
+    secret_name: str
+    mount_path: str
+
+
 class K8sPodDefaultManifestInfo(BaseModel):
     """Structured model used to group info regarding a pod default, to be used to generate k8s poddefault manifest."""
 
@@ -52,6 +60,7 @@ class K8sPodDefaultManifestInfo(BaseModel):
     desc: str
     selector_name: str
     env_vars: list[PodDefaultEnvVar]
+    secret_volumes: list[PodDefaultSecretVolume] | None = None
 
 
 @dataclass

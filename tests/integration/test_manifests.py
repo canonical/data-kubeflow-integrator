@@ -3,6 +3,7 @@
 # See LICENSE file for licensing details.
 
 import json
+import base64
 import logging
 from pathlib import Path
 
@@ -189,7 +190,9 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
     assert "kubernetes_manifests" in secrets_rel_data[1]
     secrets_k8s_manifests = json.loads(secrets_rel_data[1]["kubernetes_manifests"])
     for secret_manifest in secrets_k8s_manifests:
-        validate_k8s_secret(secret_manifest, keys_values_to_check={"index": "index-name"})
+        secret = validate_k8s_secret(secret_manifest)
+        if secret.metadata.name == "opensearch-secret":
+            assert secret.data["OPENSEARCH_INDEX"] == base64.b64encode(b"index-name").decode()
 
     assert "kubernetes_manifests" in poddefaults_rel_data[1]
     poddefaults_k8s_manifests = json.loads(poddefaults_rel_data[1]["kubernetes_manifests"])
