@@ -17,8 +17,8 @@ from pydantic import ValidationError
 
 from constants import (
     K8S_DATABASE_SECRET_NAME,
+    K8S_DATABASE_TLS_CERT_PATH,
     K8S_DATABASE_TLS_SECRET_NAME,
-    K8S_TLS_MOUNTPATH,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
@@ -83,7 +83,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             if tls_secret:
                 secrets_manifests.append(tls_secret)
                 # Add a path to the mounted tls
-                secret_data[f"{database_name}_CA_CERT_PATH"] = K8S_TLS_MOUNTPATH
+                secret_data["ca_cert_path"] = K8S_DATABASE_TLS_CERT_PATH[database_name]
                 # Remove "tls-ca" from creds
                 secret_data.pop("tls-ca")
 
@@ -98,7 +98,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
         if self.is_k8s_poddefaults_manifests_related:
             # If a tls-secret was generated, we include the cert path in pod default
             if tls_secret:
-                creds[f"{database_name}_CA_CERT_PATH"] = K8S_TLS_MOUNTPATH
+                creds["ca_cert_path"] = K8S_DATABASE_TLS_CERT_PATH[database_name]
                 creds.pop("tls-ca")
 
             poddefault = generate_poddefault_manifest(

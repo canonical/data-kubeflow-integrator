@@ -105,6 +105,8 @@ def generate_poddefault_manifest(
             for key, _ in formatted_data.items()
         ]
     else:
+        if creds.get("tls-ca"):
+            creds["tls-ca"] = creds["tls-ca"].replace("\n", "")
         poddefault_env_vars += [
             PodDefaultEnvVar(name=key, value=value) for key, value in creds.items()
         ]
