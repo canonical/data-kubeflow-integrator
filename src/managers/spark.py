@@ -13,7 +13,7 @@ from data_platform_helpers.advanced_statuses.types import Scope
 from pydantic import ValidationError
 
 from constants import SPARK
-from core.config import KafkaConfig
+from core.config import SparkConfig
 from core.state import GlobalState
 from core.statuses import CharmStatuses, ConfigStatuses
 from utils.k8s_models import ReconciledManifests
@@ -63,16 +63,15 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
         if scope == "app":
             # Show error status on app only
             status_list = []
-
-            kafka_config = None
+            spark_config = None
 
             try:
-                kafka_config = KafkaConfig(**self.state.charm.config)
+                spark_config = SparkConfig(**self.state.charm.config)
             except ValidationError as err:
                 self.logger.warning(str(err))
 
-                # If kafka is related
-                if len(self.kafka_requirer.relations) > 0:
+                # If Spark is related
+                if len(self.spark_requirer.relations) > 0:
                     missing = [
                         str(error["loc"][0])
                         for error in err.errors()
@@ -92,8 +91,8 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
                         status_list.append(
                             ConfigStatuses.invalid_config_parameters(fields=invalid)
                         )
-            if kafka_config and not self.is_kafka_related:
-                # Block the charm since we need the integration with kafka
+            if spark_config and not self.is_spark_related:
+                # Block the charm since we need the integration with spark
                 status_list.append(CharmStatuses.missing_integration_with_kafka())
 
             return status_list or [CharmStatuses.ACTIVE_IDLE.value]

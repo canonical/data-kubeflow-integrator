@@ -60,6 +60,15 @@ class CharmStatuses(Enum):
             action="Integrate with a Kafka Charm",
         )
 
+    @staticmethod
+    def missing_integration_with_spark() -> StatusObject:
+        """Integration with Spark is required."""
+        return StatusObject(
+            status="blocked",
+            message="Missing relation with: Spark",
+            action="Integrate with spark-integration-hub-k8s Charm",
+        )
+
 
 class ConfigStatuses(Enum):
     """Status objects related to config options."""
