@@ -70,6 +70,8 @@ class ReconciledManifests:
     secrets: list[KubernetesManifest] = field(default_factory=list)
     poddefaults: list[KubernetesManifest] = field(default_factory=list)
     serviceaccounts: list[KubernetesManifest] = field(default_factory=list)
+    roles: list[KubernetesManifest] = field(default_factory=list)
+    role_bindings: list[KubernetesManifest] = field(default_factory=list)
 
     def __add__(self, other: "ReconciledManifests") -> "ReconciledManifests":
         """Implements the add interface."""
@@ -80,6 +82,8 @@ class ReconciledManifests:
             secrets=self.secrets + other.secrets,
             poddefaults=self.poddefaults + other.poddefaults,
             serviceaccounts=self.serviceaccounts + other.serviceaccounts,
+            roles=self.roles + other.roles,
+            role_bindings=self.role_bindings + other.role_bindings,
         )
 
     def __iadd__(self, other: "ReconciledManifests") -> "ReconciledManifests":
@@ -90,4 +94,6 @@ class ReconciledManifests:
         self.secrets += other.secrets
         self.poddefaults += other.poddefaults
         self.serviceaccounts += other.serviceaccounts
+        self.roles += other.roles
+        self.role_bindings += other.role_bindings
         return self

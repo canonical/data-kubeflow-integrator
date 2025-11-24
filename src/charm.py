@@ -17,6 +17,7 @@ from managers.mongodb import MongodbManager
 from managers.mysql import MysqlManager
 from managers.opensearch import OpenSearchManager
 from managers.postgresql import PostgresqlManager
+from managers.spark import SparkManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
         self.mysql_manager = MysqlManager(self.state)
         self.postgresql_manager = PostgresqlManager(self.state)
         self.mongodb_manager = MongodbManager(self.state)
+        self.spark_manager = SparkManager(self.state)
         self.manifests_manager = KubernetesManifestsManager(self.state)
 
         self.status = StatusHandler(  # priority order

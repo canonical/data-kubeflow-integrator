@@ -167,9 +167,9 @@ class PostgresqlConfig(BaseConfigModel):
         return data
 
 
-# class SparkConfig(BaseConfigModel):
-# """Model for Spark configuration."""
+class SparkConfig(BaseConfigModel):
+    """Model for Spark configuration."""
 
-# spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
-# alias="spark-service-account"
-# )
+    spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+        alias="spark-service-account"
+    )

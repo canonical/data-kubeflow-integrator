@@ -6,6 +6,7 @@
 
 import os
 
+import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import (
     KubernetesManifest,  # type: ignore[import-untyped]
 )
@@ -20,6 +21,8 @@ from constants import (
     K8S_DATABASE_TLS_CERT_PATH,
     K8S_DATABASE_TLS_SECRET_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+    ROLEBINDINGS_DISPATCHER_RELATION_NAME,
+    ROLES_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
 )
@@ -112,6 +115,77 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             poddefault_manifests.append(poddefault)
         return ReconciledManifests(secrets=secrets_manifests, poddefaults=poddefault_manifests)
 
+    def reconcile_spark_manifests(
+        self, raw_manifests: str, namespace: str, service_account: str
+    ) -> ReconciledManifests:
+        """Generate manifests for Spark interface."""
+        if not self.state.profile_config:
+            self.logger.warning("No specified profile, skipping manifests generation")
+            return ReconciledManifests()
+
+        manifest_yaml = list(yaml.safe_load_all(raw_manifests))
+
+        secrets_manifests: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "Secret"
+            ]
+            if self.is_k8s_secrets_manifests_related
+            else []
+        )
+
+        service_accounts_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "ServiceAccount"
+            ]
+            if self.is_k8s_service_accounts_manifests_related
+            else []
+        )
+
+        roles_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "Role"
+            ]
+            if self.is_k8s_roles_manifests_related
+            else []
+        )
+
+        rolebindings_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "RoleBinding"
+            ]
+            if self.is_k8s_rolebindings_manifests_related
+            else []
+        )
+
+        poddefaults_manifest = (
+            [
+                generate_poddefault_manifest(
+                    self.poddefault_k8s_template,
+                    self.state.profile_config.profile,
+                    creds={"service_account": service_account, "namespace": namespace},
+                    database_name="spark",
+                ),
+            ]
+            if self.is_k8s_poddefaults_manifests_related
+            else []
+        )
+
+        return ReconciledManifests(
+            secrets=secrets_manifests,
+            poddefaults=poddefaults_manifest,
+            serviceaccounts=service_accounts_manifest,
+            roles=roles_manifest,
+            role_bindings=rolebindings_manifest,
+        )
+
     def send_manifests(self, reconciled_manifests: ReconciledManifests):
         """Send k8s manifests to the manifests provider."""
         if len(reconciled_manifests.secrets):
@@ -120,6 +194,10 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             self.manifests_poddefault_wrapper.send_data(reconciled_manifests.poddefaults)
         if len(reconciled_manifests.serviceaccounts):
             self.manifests_service_account_wrapper.send_data(reconciled_manifests.serviceaccounts)
+        if len(reconciled_manifests.roles):
+            self.manifests_roles_wrapper.send_data(reconciled_manifests.roles)
+        if len(reconciled_manifests.role_bindings):
+            self.manifests_rolebindings_wrapper.send_data(reconciled_manifests.role_bindings)
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
@@ -161,6 +239,16 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
         return self.state.charm.general_events.service_accounts_manifests_wrapper
 
     @property
+    def manifests_roles_wrapper(self):
+        """Retuyrn the Manifests Service Account Wrapper."""
+        return self.state.charm.general_events.roles_manifests_wrapper
+
+    @property
+    def manifests_rolebindings_wrapper(self):
+        """Retuyrn the Manifests Service Account Wrapper."""
+        return self.state.charm.general_events.role_bindings_manifests_wrapper
+
+    @property
     def is_manifests_provider_related(self):
         """Is the charm related to any manifests relation provider."""
         return any(
@@ -168,6 +256,8 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 self.is_k8s_poddefaults_manifests_related,
                 self.is_k8s_secrets_manifests_related,
                 self.is_k8s_service_accounts_manifests_related,
+                self.is_k8s_roles_manifests_related,
+                self.is_k8s_rolebindings_manifests_related,
             ]
         )
 
@@ -187,6 +277,16 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
         return bool(
             self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME)
         )
+
+    @property
+    def is_k8s_roles_manifests_related(self) -> bool:
+        """Is the charm related to a roles manifests relation."""
+        return bool(self.state.charm.model.relations.get(ROLES_DISPATCHER_RELATION_NAME))
+
+    @property
+    def is_k8s_rolebindings_manifests_related(self) -> bool:
+        """Is the charm related to a rolebindings manifests relation."""
+        return bool(self.state.charm.model.relations.get(ROLEBINDINGS_DISPATCHER_RELATION_NAME))
 
     @property
     def secret_k8s_template(self) -> Template:

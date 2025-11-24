@@ -15,6 +15,7 @@ peers:
     interface: kubeflow-integrator-peers
 
 requires:
+  # Relation with the database / processing charms
   mysql:
     interface: mysql_client
     limit: 1
@@ -30,11 +31,18 @@ requires:
   opensearch:
     interface: opensearch_client
     limit: 1
-# relations with `resource-dispatcher`
+  spark:
+    interface: spark_service_account
+    limit: 1
+
+  # Relation with `resource-dispatcher` charm
   secrets:
     interface: kubernetes_manifest
   service-accounts:
     interface: kubernetes_manifest
   pod-defaults:
     interface: kubernetes_manifest
-
+  roles:
+    interface: kubernetes_manifest
+  role-bindings:
+    interface: kubernetes_manifest

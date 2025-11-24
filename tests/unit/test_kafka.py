@@ -2,11 +2,11 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import base64
 import dataclasses
 from pathlib import Path
 
 import yaml
-import base64
 from charms.data_platform_libs.v0.data_models import json
 from ops import ActiveStatus, BlockedStatus, testing
 from ops.testing import Relation, State

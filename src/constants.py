@@ -9,6 +9,7 @@ MONGODB = "mongodb"
 MYSQL = "mysql"
 OPENSEARCH = "opensearch"
 KAFKA = "kafka"
+SPARK = "spark"
 
 
 OPENSEARCH_RELATION_NAME = "opensearch"
@@ -16,10 +17,14 @@ POSTGRESQL_RLEATION_NAME = "postgresql"
 MYSQL_RELATION_NAME = "mysql"
 MONGODB_RELATION_NAME = "mongodb"
 KAFKA_RELATION_NAME = "kafka"
+SPARK_RELATION_NAME = "spark"
+
 STATUS_PEERS_RELATION_NAME = "status-peers"
 SECRETS_DISPATCHER_RELATION_NAME = "secrets"
 SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME = "service-accounts"
 POD_DEFAULTS_DISPATCHER_RELATION_NAME = "pod-defaults"
+ROLES_DISPATCHER_RELATION_NAME = "roles"
+ROLEBINDINGS_DISPATCHER_RELATION_NAME = "role-bindings"
 PEER_RELATION = "kubeflow-integrator-peers"
 
 K8S_TLS_SECRET_VOLUME = "tls-secret"
@@ -32,6 +37,7 @@ K8S_DATABASE_SECRET_NAME = {
     MYSQL: "mysql-secret",
     OPENSEARCH: "opensearch-secret",
     KAFKA: "kafka-secret",
+    SPARK: "spark-secret",
 }
 
 K8S_DATABASE_TLS_SECRET_NAME = {
@@ -48,6 +54,7 @@ K8S_DATABASE_PODDEFAULT_NAME = {
     MYSQL: "mysql-pod-default",
     OPENSEARCH: "opensearch-pod-default",
     KAFKA: "kafka-pod-default",
+    SPARK: "spark-pod-default",
 }
 
 K8S_DATABASE_PODDEFAULT_DESC = {
@@ -56,6 +63,7 @@ K8S_DATABASE_PODDEFAULT_DESC = {
     MYSQL: "Mysql Credentials",
     OPENSEARCH: "OpenSearch Credentials",
     KAFKA: "Kafka Credentials",
+    SPARK: "Spark Service Account",
 }
 
 K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL = {
@@ -64,6 +72,7 @@ K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL = {
     MYSQL: "access-mysql",
     OPENSEARCH: "access-opensearch",
     KAFKA: "access-kafka",
+    SPARK: "access-spark",
 }
 
 
