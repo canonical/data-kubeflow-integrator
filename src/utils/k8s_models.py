@@ -52,6 +52,13 @@ class PodDefaultSecretVolume(BaseModel):
     mount_path: str
 
 
+class PodDefaultAnnotation(BaseModel):
+    """Structured model for annotations in a pod-default."""
+
+    key: str
+    value: str
+
+
 class K8sPodDefaultManifestInfo(BaseModel):
     """Structured model used to group info regarding a pod default, to be used to generate k8s poddefault manifest."""
 
@@ -61,6 +68,8 @@ class K8sPodDefaultManifestInfo(BaseModel):
     selector_name: str
     env_vars: list[PodDefaultEnvVar]
     secret_volumes: list[PodDefaultSecretVolume] | None = None
+    annotations: list[PodDefaultAnnotation] | None = None
+    args: list[str] | None = None
 
 
 @dataclass

@@ -37,3 +37,16 @@ spec:
         optional: {{ env_var.secret.optional | tojson }}
     {% endif %}
   {% endfor%}
+  {% if pod_default.annotations %}
+  annotations:
+      {% for annotation in pod_default.annotations %}
+      {{ annotation.key }}: {{ annotation.value }}
+      {% endfor %}
+  {% endif %}
+  {% if pod_default.args %}
+  args:
+    {% for arg in pod_default.args %}
+    - {{ arg }}
+    {% endfor %}
+  {% endif %}
+  

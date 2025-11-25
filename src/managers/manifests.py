@@ -170,8 +170,34 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 generate_poddefault_manifest(
                     self.poddefault_k8s_template,
                     self.state.profile_config.profile,
-                    creds={"service_account": service_account, "namespace": namespace},
+                    creds={"SPARK_SERVICE_ACCOUNT": service_account, "SPARK_NAMESPACE": namespace},
                     database_name="spark",
+                    poddefault_name="pyspark-pipeline",
+                    poddefault_description="Configure PySpark for Kubeflow pipelines",
+                ),
+                generate_poddefault_manifest(
+                    self.poddefault_k8s_template,
+                    self.state.profile_config.profile,
+                    creds={"SPARK_SERVICE_ACCOUNT": service_account, "SPARK_NAMESPACE": namespace},
+                    database_name="spark",
+                    poddefault_name="pyspark-notebook",
+                    poddefault_description="Configure PySpark for Kubeflow notebooks",
+                    args=[
+                        "--namespace",
+                        namespace,
+                        "--username",
+                        service_account,
+                        "--conf",
+                        "spark.driver.port=37371",
+                        "--conf",
+                        "spark.blockManager.port=6060",
+                        "--conf",
+                        "spark.kubernetes.container.image=ghcr.io/canonical/charmed-spark@sha256:1d9949dc7266d814e6483f8d9ffafeff32f66bb9939e0ab29ccfd9d5003a583a",
+                    ],
+                    annotations={
+                        "traffic.sidecar.istio.io/excludeInboundPorts": "37371,6060",
+                        "traffic.sidecar.istio.io/excludeOutboundPorts": "37371,6060",
+                    },
                 ),
             ]
             if self.is_k8s_poddefaults_manifests_related
