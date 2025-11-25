@@ -8,9 +8,9 @@ requires-poetry = ">=2.0.0"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-ops = "^3.2.0"
+ops = "^3.3.1"
 data-platform-helpers = "^0.1.7"
-pydantic = "^2.11.3"
+pydantic = "^2.12.4"
 Jinja2 = "^3.1.6"
 tenacity = "^9.1.2"
 
@@ -20,25 +20,25 @@ optional = true
 
 
 [tool.poetry.group.format.dependencies]
-ruff = "^0.8.6"
+ruff = "^0.14.6"
 
 [tool.poetry.group.lint]
 optional = true
 
 [tool.poetry.group.lint.dependencies]
-ruff = "^0.8.6"
-codespell = "^2.2.6"
-mypy = "^1.15.0"
+ruff = "^0.14.6"
+codespell = "^2.4.1"
+mypy = "^1.18.2"
 
 [tool.poetry.group.unit.dependencies]
-coverage = { extras = ["toml"], version = "^7.4.4" }
-pytest = "^8.1.1"
+coverage = { extras = ["toml"], version = "^7.12.0" }
+pytest = "^8.4.2"
 pytest-asyncio = "*"
-ops = { version = ">=2.18.0", extras = ["testing"] }
+ops = { version = ">=2.23.1", extras = ["testing"] }
 
 [tool.poetry.group.integration.dependencies]
-pytest = "^8.1.1"
-jubilant = "^1.0.0"
+pytest = "^8.4.2"
+jubilant = "^1.5.0"
 requests = "^2.32.5"
 allure-pytest = "^2.15.0"
 allure-pytest-default-results = "^0.1.3"
