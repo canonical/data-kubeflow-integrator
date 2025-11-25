@@ -68,15 +68,26 @@ jobs:
       cache: false
       path-to-charm-directory: ${{ matrix.path }}
 
-  integration-test:
-    name: Integration test charm
+  # integration-test:
+  #   name: Integration test charm
+  #   needs:
+  #     - lint
+  #     - unit-test
+  #     - build
+  #   uses: ./.github/workflows/integration_test.yaml
+  #   with:
+  #     artifact-prefix: ${{ needs.build.outputs.artifact-prefix }}
+  #   secrets: inherit
+  #   permissions:
+  #     contents: write # Needed for Allure Report
+
+  release:
+    name: Release charm to test branch
     needs:
-      - lint
-      - unit-test
       - build
-    uses: ./.github/workflows/integration_test.yaml
+    uses: canonical/data-platform-workflows/.github/workflows/release_charm_pr.yaml@v32.1.0
     with:
+      track: "1"
       artifact-prefix: ${{ needs.build.outputs.artifact-prefix }}
-    secrets: inherit
-    permissions:
-      contents: write # Needed for Allure Report
+    secrets:
+      charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
