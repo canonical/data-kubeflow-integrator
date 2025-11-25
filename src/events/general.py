@@ -98,7 +98,7 @@ class GeneralEventsHandler(Object, WithLogging):
         self.spark = SparkServiceAccountRequirer(
             self.charm,
             relation_name=SPARK_RELATION_NAME,
-            service_account=getattr(self.state.spark_config, "service_account", ""),
+            service_account=getattr(self.state.spark_config, "spark_service_account", ""),
             skip_creation=True,
         )
         for database in [self.postgresql, self.mysql, self.mongodb]:
