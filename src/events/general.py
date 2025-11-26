@@ -95,10 +95,12 @@ class GeneralEventsHandler(Object, WithLogging):
             database_name=getattr(self.state.mysql_config, "database_name", ""),
             extra_user_roles=getattr(self.state.mysql_config, "extra_user_roles", ""),
         )
+        namespace = getattr(self.state.profile_config, "profile", "")
+        username = getattr(self.state.spark_config, "spark_service_account", "")
         self.spark = SparkServiceAccountRequirer(
             self.charm,
             relation_name=SPARK_RELATION_NAME,
-            service_account=getattr(self.state.spark_config, "spark_service_account", ""),
+            service_account=f"{namespace}:{username}",
             skip_creation=True,
         )
         for database in [self.postgresql, self.mysql, self.mongodb]:

@@ -25,6 +25,14 @@ from constants import (
     ROLES_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
+    SPARK,
+    SPARK_BLOCK_MANAGER_PORT,
+    SPARK_DRIVER_PORT,
+    SPARK_IMAGE,
+    SPARK_NOTEBOOK_PODDEFAULT_DESC,
+    SPARK_NOTEBOOK_PODDEFAULT_NAME,
+    SPARK_PIPELINE_PODDEFAULT_DESC,
+    SPARK_PIPELINE_PODDEFAULT_NAME,
 )
 from core.config import ProfileConfig
 from core.state import GlobalState
@@ -165,43 +173,42 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             else []
         )
 
+        spark_pipeline_poddefault = generate_poddefault_manifest(
+            self.poddefault_k8s_template,
+            self.state.profile_config.profile,
+            creds={"SPARK_SERVICE_ACCOUNT": service_account},
+            database_name=SPARK,
+            poddefault_name=SPARK_PIPELINE_PODDEFAULT_NAME,
+            poddefault_description=SPARK_PIPELINE_PODDEFAULT_DESC,
+            fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+        )
+        spark_notebook_poddefault = generate_poddefault_manifest(
+            self.poddefault_k8s_template,
+            self.state.profile_config.profile,
+            creds={"SPARK_SERVICE_ACCOUNT": service_account},
+            database_name=SPARK,
+            poddefault_name=SPARK_NOTEBOOK_PODDEFAULT_NAME,
+            poddefault_description=SPARK_NOTEBOOK_PODDEFAULT_DESC,
+            args=[
+                "--namespace",
+                "$SPARK_NAMESPACE",
+                "--username",
+                "$SPARK_SERVICE_ACCOUNT",
+                "--conf",
+                f"spark.driver.port={SPARK_DRIVER_PORT}",
+                "--conf",
+                f"spark.blockManager.port={SPARK_BLOCK_MANAGER_PORT}",
+                "--conf",
+                f"spark.kubernetes.container.image={SPARK_IMAGE}",
+            ],
+            annotations={
+                "traffic.sidecar.istio.io/excludeInboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+                "traffic.sidecar.istio.io/excludeOutboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+            },
+            fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+        )
         poddefaults_manifest = (
-            [
-                generate_poddefault_manifest(
-                    self.poddefault_k8s_template,
-                    self.state.profile_config.profile,
-                    creds={"SPARK_SERVICE_ACCOUNT": service_account},
-                    database_name="spark",
-                    poddefault_name="pyspark-pipeline",
-                    poddefault_description="Configure PySpark for Kubeflow pipelines",
-                    fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
-                ),
-                generate_poddefault_manifest(
-                    self.poddefault_k8s_template,
-                    self.state.profile_config.profile,
-                    creds={"SPARK_SERVICE_ACCOUNT": service_account},
-                    database_name="spark",
-                    poddefault_name="pyspark-notebook",
-                    poddefault_description="Configure PySpark for Kubeflow notebooks",
-                    args=[
-                        "--namespace",
-                        "$SPARK_NAMESPACE",
-                        "--username",
-                        "$SPARK_SERVICE_ACCOUNT",
-                        "--conf",
-                        "spark.driver.port=37371",
-                        "--conf",
-                        "spark.blockManager.port=6060",
-                        "--conf",
-                        "spark.kubernetes.container.image=ghcr.io/canonical/charmed-spark@sha256:1d9949dc7266d814e6483f8d9ffafeff32f66bb9939e0ab29ccfd9d5003a583a",
-                    ],
-                    annotations={
-                        "traffic.sidecar.istio.io/excludeInboundPorts": "37371,6060",
-                        "traffic.sidecar.istio.io/excludeOutboundPorts": "37371,6060",
-                    },
-                    fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
-                ),
-            ]
+            [spark_pipeline_poddefault, spark_notebook_poddefault]
             if self.is_k8s_poddefaults_manifests_related
             else []
         )

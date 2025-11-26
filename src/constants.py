@@ -56,6 +56,8 @@ K8S_DATABASE_PODDEFAULT_NAME = {
     KAFKA: "kafka-pod-default",
     SPARK: "spark-pod-default",
 }
+SPARK_PIPELINE_PODDEFAULT_NAME = "pyspark-pipeline"
+SPARK_NOTEBOOK_PODDEFAULT_NAME = "pyspark-notebook"
 
 K8S_DATABASE_PODDEFAULT_DESC = {
     POSTGRESQL: "Postgresql Credentials",
@@ -65,6 +67,8 @@ K8S_DATABASE_PODDEFAULT_DESC = {
     KAFKA: "Kafka Credentials",
     SPARK: "Spark Service Account",
 }
+SPARK_PIPELINE_PODDEFAULT_DESC = "Configure PySpark for Kubeflow pipelines"
+SPARK_NOTEBOOK_PODDEFAULT_DESC = "pyspark-notebook"
 
 K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL = {
     POSTGRESQL: "access-postgresql",
@@ -83,3 +87,9 @@ K8S_DATABASE_TLS_CERT_PATH = {
     OPENSEARCH: f"{K8S_TLS_MOUNTPATH}/{OPENSEARCH}_ca.crt",
     KAFKA: f"{K8S_TLS_MOUNTPATH}/{KAFKA}_ca.crt",
 }
+
+
+# Spark related configs
+SPARK_DRIVER_PORT = 37371
+SPARK_BLOCK_MANAGER_PORT = 6060
+SPARK_IMAGE = "ghcr.io/canonical/charmed-spark@sha256:1d9949dc7266d814e6483f8d9ffafeff32f66bb9939e0ab29ccfd9d5003a583a"
