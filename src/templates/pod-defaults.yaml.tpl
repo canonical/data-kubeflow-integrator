@@ -36,6 +36,11 @@ spec:
         key: {{ env_var.secret.secret_key }}
         optional: {{ env_var.secret.optional | tojson }}
     {% endif %}
+    {% if env_var.fieldref %}
+    valueFrom:
+      fieldRef:
+        fieldPath: {{ env_var.fieldref.field_path }}
+    {% endif %}
   {% endfor%}
   {% if pod_default.annotations %}
   annotations:

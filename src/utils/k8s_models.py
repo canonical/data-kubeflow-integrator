@@ -29,17 +29,25 @@ class EnvVarFromSecret(BaseModel):
     optional: bool = False
 
 
+class EnvVarFromField(BaseModel):
+    """Structured model for environment variable from metadata in poddefault."""
+
+    field_path: str
+    optional: bool = False
+
+
 class PodDefaultEnvVar(BaseModel):
     """Structured model for environment variable definitions in poddefault."""
 
     name: str
     value: str | None = None
     secret: EnvVarFromSecret | None = None
+    fieldref: EnvVarFromField | None = None
 
     @model_validator(mode="after")
     def check_on_of(self):
         """Validate that either the `value` field or `secret` field is specified."""
-        if not (self.value or self.secret):
+        if not (self.value or self.secret or self.fieldref):
             raise ValueError("Either 'value' or 'secret' must be provided")
         return self
 

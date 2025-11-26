@@ -19,6 +19,7 @@ from constants import (
     K8S_TLS_SECRET_VOLUME,
 )
 from utils.k8s_models import (
+    EnvVarFromField,
     EnvVarFromSecret,
     K8sPodDefaultManifestInfo,
     K8sSecretManifestInfo,
@@ -87,6 +88,7 @@ def generate_poddefault_manifest(
     poddefault_description: str | None = None,
     annotations: dict[str, str] | None = None,
     args: list[str] | None = None,
+    fieldrefs: dict[str, str] | None = None,
 ):
     """Generate PodDefault manifest for a database."""
     poddefault_secret_volumes: list[PodDefaultSecretVolume] | None = None
@@ -119,6 +121,11 @@ def generate_poddefault_manifest(
     if annotations:
         poddefault_annotations = [
             PodDefaultAnnotation(key=key, value=value) for key, value in annotations.items()
+        ]
+    if fieldrefs:
+        poddefault_env_vars += [
+            PodDefaultEnvVar(name=key, fieldref=EnvVarFromField(field_path=value))
+            for key, value in fieldrefs.items()
         ]
 
     k8s_poddefault_info = K8sPodDefaultManifestInfo(

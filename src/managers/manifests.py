@@ -170,23 +170,24 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 generate_poddefault_manifest(
                     self.poddefault_k8s_template,
                     self.state.profile_config.profile,
-                    creds={"SPARK_SERVICE_ACCOUNT": service_account, "SPARK_NAMESPACE": namespace},
+                    creds={"SPARK_SERVICE_ACCOUNT": service_account},
                     database_name="spark",
                     poddefault_name="pyspark-pipeline",
                     poddefault_description="Configure PySpark for Kubeflow pipelines",
+                    fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
                 ),
                 generate_poddefault_manifest(
                     self.poddefault_k8s_template,
                     self.state.profile_config.profile,
-                    creds={"SPARK_SERVICE_ACCOUNT": service_account, "SPARK_NAMESPACE": namespace},
+                    creds={"SPARK_SERVICE_ACCOUNT": service_account},
                     database_name="spark",
                     poddefault_name="pyspark-notebook",
                     poddefault_description="Configure PySpark for Kubeflow notebooks",
                     args=[
                         "--namespace",
-                        namespace,
+                        "$SPARK_NAMESPACE",
                         "--username",
-                        service_account,
+                        "$SPARK_SERVICE_ACCOUNT",
                         "--conf",
                         "spark.driver.port=37371",
                         "--conf",
@@ -198,6 +199,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                         "traffic.sidecar.istio.io/excludeInboundPorts": "37371,6060",
                         "traffic.sidecar.istio.io/excludeOutboundPorts": "37371,6060",
                     },
+                    fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
                 ),
             ]
             if self.is_k8s_poddefaults_manifests_related
