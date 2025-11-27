@@ -2,7 +2,7 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Manager for kafka related tasks."""
+"""Manager for Spark related tasks."""
 
 from typing import cast
 
@@ -54,7 +54,7 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             ).split(":")
 
             return self.state.charm.manifests_manager.reconcile_spark_manifests(
-                raw_manifest, namespace, service_account
+                raw_manifest, service_account
             )
         return ReconciledManifests()
 
@@ -93,7 +93,7 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
                         )
             if spark_config and not self.is_spark_related:
                 # Block the charm since we need the integration with spark
-                status_list.append(CharmStatuses.missing_integration_with_kafka())
+                status_list.append(CharmStatuses.missing_integration_with_spark())
 
             return status_list or [CharmStatuses.ACTIVE_IDLE.value]
         else:

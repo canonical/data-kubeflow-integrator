@@ -28,7 +28,6 @@ from constants import (
     SPARK,
     SPARK_BLOCK_MANAGER_PORT,
     SPARK_DRIVER_PORT,
-    SPARK_IMAGE,
     SPARK_NOTEBOOK_PODDEFAULT_DESC,
     SPARK_NOTEBOOK_PODDEFAULT_NAME,
     SPARK_PIPELINE_PODDEFAULT_DESC,
@@ -124,7 +123,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
         return ReconciledManifests(secrets=secrets_manifests, poddefaults=poddefault_manifests)
 
     def reconcile_spark_manifests(
-        self, raw_manifests: str, namespace: str, service_account: str
+        self, raw_manifests: str, service_account: str
     ) -> ReconciledManifests:
         """Generate manifests for Spark interface."""
         if not self.state.profile_config:
@@ -198,8 +197,6 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 f"spark.driver.port={SPARK_DRIVER_PORT}",
                 "--conf",
                 f"spark.blockManager.port={SPARK_BLOCK_MANAGER_PORT}",
-                "--conf",
-                f"spark.kubernetes.container.image={SPARK_IMAGE}",
             ],
             annotations={
                 "traffic.sidecar.istio.io/excludeInboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
@@ -270,17 +267,17 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
     @property
     def manifests_service_account_wrapper(self):
-        """Retuyrn the Manifests Service Account Wrapper."""
+        """Return the Manifests Service Account Wrapper."""
         return self.state.charm.general_events.service_accounts_manifests_wrapper
 
     @property
     def manifests_roles_wrapper(self):
-        """Retuyrn the Manifests Service Account Wrapper."""
+        """Return the Manifests Roles Wrapper."""
         return self.state.charm.general_events.roles_manifests_wrapper
 
     @property
     def manifests_rolebindings_wrapper(self):
-        """Retuyrn the Manifests Service Account Wrapper."""
+        """Return the Manifests Role Bindings Wrapper."""
         return self.state.charm.general_events.role_bindings_manifests_wrapper
 
     @property
@@ -303,12 +300,12 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
     @property
     def is_k8s_poddefaults_manifests_related(self) -> bool:
-        """Is the charm related to a secrets manifests relation."""
+        """Is the charm related to a poddefaults manifests relation."""
         return bool(self.state.charm.model.relations.get(POD_DEFAULTS_DISPATCHER_RELATION_NAME))
 
     @property
     def is_k8s_service_accounts_manifests_related(self) -> bool:
-        """Is the charm related to a secrets manifests relation."""
+        """Is the charm related to a serviceaccounts manifests relation."""
         return bool(
             self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME)
         )

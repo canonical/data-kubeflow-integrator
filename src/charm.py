@@ -48,6 +48,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
             self.mysql_manager,
             self.postgresql_manager,
             self.mongodb_manager,
+            self.spark_manager,
         )
 
         # Event Handlers

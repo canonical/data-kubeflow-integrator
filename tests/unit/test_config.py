@@ -161,6 +161,30 @@ def test_charm_blocked_on_kafka_topic_specified(charm_configuration: dict, base_
     assert "Missing relation with: Kafka" in status.message
 
 
+def test_charm_blocked_on_spark_serviceaccount_specified_without_spark_relation(
+    charm_configuration: dict, base_state: State
+):
+    """Test that charm will be in a blocked state waiting for an integration with Spark if 'spark-service-account' is specified."""
+    # Given
+    charm_configuration["options"]["profile"]["default"] = "profile"
+    charm_configuration["options"]["spark-service-account"]["default"] = "spark"
+
+    ctx = testing.Context(
+        KubeflowIntegratorCharm,
+        meta=METADATA,
+        config=charm_configuration,
+        actions=ACTIONS,
+        unit_id=0,
+    )
+
+    state_in = base_state
+    # When:
+    state_out = ctx.run(ctx.on.start(), state_in)
+    # Then:
+    assert isinstance(status := state_out.app_status, BlockedStatus)
+    assert "Missing relation with: Spark" in status.message
+
+
 def test_config_changed(charm_configuration: dict, base_state: State):
     """Test that charm will be in a blocked state once the profile config becomes invalid or missing."""
     # Given

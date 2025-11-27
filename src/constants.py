@@ -37,7 +37,6 @@ K8S_DATABASE_SECRET_NAME = {
     MYSQL: "mysql-secret",
     OPENSEARCH: "opensearch-secret",
     KAFKA: "kafka-secret",
-    SPARK: "spark-secret",
 }
 
 K8S_DATABASE_TLS_SECRET_NAME = {
@@ -68,7 +67,7 @@ K8S_DATABASE_PODDEFAULT_DESC = {
     SPARK: "Spark Service Account",
 }
 SPARK_PIPELINE_PODDEFAULT_DESC = "Configure PySpark for Kubeflow pipelines"
-SPARK_NOTEBOOK_PODDEFAULT_DESC = "pyspark-notebook"
+SPARK_NOTEBOOK_PODDEFAULT_DESC = "Configure PySpark for Kubeflow notebooks"
 
 K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL = {
     POSTGRESQL: "access-postgresql",
@@ -92,4 +91,3 @@ K8S_DATABASE_TLS_CERT_PATH = {
 # Spark related configs
 SPARK_DRIVER_PORT = 37371
 SPARK_BLOCK_MANAGER_PORT = 6060
-SPARK_IMAGE = "ghcr.io/canonical/charmed-spark@sha256:1d9949dc7266d814e6483f8d9ffafeff32f66bb9939e0ab29ccfd9d5003a583a"

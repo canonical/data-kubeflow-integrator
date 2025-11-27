@@ -118,14 +118,14 @@ def generate_poddefault_manifest(
         poddefault_env_vars += [
             PodDefaultEnvVar(name=key, value=value) for key, value in creds.items()
         ]
-    if annotations:
-        poddefault_annotations = [
-            PodDefaultAnnotation(key=key, value=value) for key, value in annotations.items()
-        ]
     if fieldrefs:
         poddefault_env_vars += [
             PodDefaultEnvVar(name=key, fieldref=EnvVarFromField(field_path=value))
             for key, value in fieldrefs.items()
+        ]
+    if annotations:
+        poddefault_annotations = [
+            PodDefaultAnnotation(key=key, value=value) for key, value in annotations.items()
         ]
 
     k8s_poddefault_info = K8sPodDefaultManifestInfo(
