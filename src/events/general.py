@@ -28,7 +28,8 @@ from charms.spark_integration_hub_k8s.v0.spark_service_account import (
     ServiceAccountPropertyChangedEvent,
     SparkServiceAccountRequirer,
 )
-from ops import EventBase, Object, RelationBrokenEvent
+from ops import Object, RelationBrokenEvent
+from ops.charm import ConfigChangedEvent
 
 from constants import (
     KAFKA_RELATION_NAME,
@@ -95,7 +96,8 @@ class GeneralEventsHandler(Object, WithLogging):
             database_name=getattr(self.state.mysql_config, "database_name", ""),
             extra_user_roles=getattr(self.state.mysql_config, "extra_user_roles", ""),
         )
-        namespace = getattr(self.state.profile_config, "profile", "")
+        profile = getattr(self.state.profile_config, "profile", "")
+        namespace = profile if profile != "*" else self.charm.model.name
         username = getattr(self.state.spark_config, "spark_service_account", "")
         self.spark = SparkServiceAccountRequirer(
             self.charm,
@@ -225,12 +227,12 @@ class GeneralEventsHandler(Object, WithLogging):
 
     def _on_spark_service_account_granted(self, event: ServiceAccountGrantedEvent) -> None:
         """Event triggered when a service account has been created and granted for this application."""
-        self.logger.debug(f"Service account is gone: {event.service_account}")
+        self.logger.debug(f"Spark service account is granted: {event.service_account}")
         self._on_config_changed(event)
 
     def _on_spark_service_account_gone(self, event: ServiceAccountGoneEvent) -> None:
         """Event triggered when a service account has been released."""
-        self.logger.debug("Service account is gone.")
+        self.logger.debug("Spark service account is gone.")
         self._on_config_changed(event)
 
     def _on_spark_properties_changed(self, event: ServiceAccountPropertyChangedEvent) -> None:
@@ -244,7 +246,7 @@ class GeneralEventsHandler(Object, WithLogging):
         """Handle relation broken event."""
         pass
 
-    def _on_config_changed(self, event: EventBase) -> None:
+    def _on_config_changed(self, event: ConfigChangedEvent) -> None:
         """Event handler for configuration changed events."""
         # Only execute in the unit leader
         if not self.charm.unit.is_leader():
@@ -270,7 +272,7 @@ class GeneralEventsHandler(Object, WithLogging):
             # route the config change to kafka manager
             self.charm.kafka_manager.update_relation_data()
 
-        if self.state.spark_config and not self.charm.spark_manager.service_account_active:
+        if self.state.spark_config:
             # route the config change to spark manager
             self.charm.spark_manager.update_relation_data()
 

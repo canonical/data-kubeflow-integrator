@@ -30,9 +30,14 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
     def update_relation_data(self) -> None:
         """Update spark relation data with latest config."""
         spark_config = self.state.spark_config
-        if spark_config:
+        profile_config = self.state.profile_config
+        breakpoint()
+        if spark_config and profile_config:
+            username = spark_config.spark_service_account
+            profile = profile_config.profile
+            namespace = profile if profile != "*" else self.state.charm.model.name
             relation_data = {
-                "service-account": spark_config.spark_service_account,
+                "service-account": f"{namespace}:{username}",
                 "skip-creation": "true",
             }
             for rel in self.spark_requirer.relations:

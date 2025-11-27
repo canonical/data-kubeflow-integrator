@@ -53,7 +53,6 @@ K8S_DATABASE_PODDEFAULT_NAME = {
     MYSQL: "mysql-pod-default",
     OPENSEARCH: "opensearch-pod-default",
     KAFKA: "kafka-pod-default",
-    SPARK: "spark-pod-default",
 }
 SPARK_PIPELINE_PODDEFAULT_NAME = "pyspark-pipeline"
 SPARK_NOTEBOOK_PODDEFAULT_NAME = "pyspark-notebook"
@@ -64,7 +63,6 @@ K8S_DATABASE_PODDEFAULT_DESC = {
     MYSQL: "Mysql Credentials",
     OPENSEARCH: "OpenSearch Credentials",
     KAFKA: "Kafka Credentials",
-    SPARK: "Spark Service Account",
 }
 SPARK_PIPELINE_PODDEFAULT_DESC = "Configure PySpark for Kubeflow pipelines"
 SPARK_NOTEBOOK_PODDEFAULT_DESC = "Configure PySpark for Kubeflow notebooks"
