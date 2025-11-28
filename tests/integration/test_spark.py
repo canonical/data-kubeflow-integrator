@@ -5,22 +5,20 @@
 import base64
 import json
 import logging
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from typing import Type
 
 import jubilant
 import lightkube
-from lightkube.resources.core_v1 import Namespace, Secret, ServiceAccount, Pod
-from lightkube.models.core_v1 import PodSpec, Container
-from lightkube.generic_resource import create_namespaced_resource
-from lightkube.resources.rbac_authorization_v1 import Role, RoleBinding
-from lightkube.models.meta_v1 import ObjectMeta
-from lightkube import ALL_NS
 import pytest
 import yaml
-
 from helpers import get_application_data
+from lightkube import ALL_NS
+from lightkube.generic_resource import create_namespaced_resource
+from lightkube.models.meta_v1 import ObjectMeta
+from lightkube.resources.core_v1 import Namespace, Pod, Secret, ServiceAccount
+from lightkube.resources.rbac_authorization_v1 import Role, RoleBinding
 
 logger = logging.getLogger(__name__)
 
@@ -86,23 +84,6 @@ def kubeflow_enabled_namespace(lightkube_client: lightkube.Client):
     lightkube_client.delete(Namespace, name=namespace_name)
 
 
-@pytest.fixture(scope="session")
-def spark_pod_with_selectors(lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str):
-    """Return a new pod with label access-spark=true."""
-    pod_name = "spark-pod"
-    pod = Pod(
-        metadata=ObjectMeta(
-            name=pod_name, labels={"access-spark": "true"}, namespace=kubeflow_enabled_namespace
-        ),
-        spec=PodSpec(containers=[Container(name="spark-container", image=SPARK_NOTEBOOK_IMAGE)]),
-    )
-    logger.info(f"Creating pod {pod} with label access-spark=true...")
-    lightkube_client.create(pod)
-    assert pod.metadata
-    yield pod.metadata.name
-    lightkube_client.delete(Pod, name=pod_name)
-
-
 def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integrator: str):
     """Deploy the kubeflow integrator charm and configure it for Spark integration."""
     logger.info("Deploying Kubeflow Integrator charm...")
@@ -160,36 +141,27 @@ def test_resource_manifest_in_integration_hub_relation(juju: jubilant.Juju):
     resources = list(yaml.safe_load_all(resource_manifest))
 
     assert any(
-        [
-            res
-            for res in resources
-            if res["kind"] == "Secret"
-            and res["metadata"]["name"]
-            == f"integrator-hub-conf-{SPARK_SERVICE_ACCOUNT_CONFIG_VALUE}"
-        ]
+        res
+        for res in resources
+        if res["kind"] == "Secret"
+        and res["metadata"]["name"] == f"integrator-hub-conf-{SPARK_SERVICE_ACCOUNT_CONFIG_VALUE}"
     )
     assert any(
-        [
-            res
-            for res in resources
-            if res["kind"] == "ServiceAccount"
-            and res["metadata"]["name"] == SPARK_SERVICE_ACCOUNT_CONFIG_VALUE
-        ]
+        res
+        for res in resources
+        if res["kind"] == "ServiceAccount"
+        and res["metadata"]["name"] == SPARK_SERVICE_ACCOUNT_CONFIG_VALUE
     )
     assert any(
-        [
-            res
-            for res in resources
-            if res["kind"] == "Role" and res["metadata"]["name"] == EXPECTED_ROLE_NAME
-        ]
+        res
+        for res in resources
+        if res["kind"] == "Role" and res["metadata"]["name"] == EXPECTED_ROLE_NAME
     )
     assert any(
-        [
-            res
-            for res in resources
-            if res["kind"] == "RoleBinding"
-            and res["metadata"]["name"] == f"{SPARK_SERVICE_ACCOUNT_CONFIG_VALUE}-role-binding"
-        ]
+        res
+        for res in resources
+        if res["kind"] == "RoleBinding"
+        and res["metadata"]["name"] == f"{SPARK_SERVICE_ACCOUNT_CONFIG_VALUE}-role-binding"
     )
 
 
@@ -234,15 +206,12 @@ def test_resource_dispatcher_relations(
     count: int,
 ):
     """Integrate the kubeflow integrator with resource dispatcher over the various relations and check that the resources are created."""
-
     res_before_relation: list = list(lightkube_client.list(resource_class, namespace=ALL_NS))
     assert not any(
-        [
-            res.metadata
-            and res.metadata.name in resource_names
-            and res.metadata.namespace == kubeflow_enabled_namespace
-            for res in res_before_relation
-        ]
+        res.metadata
+        and res.metadata.name in resource_names
+        and res.metadata.namespace == kubeflow_enabled_namespace
+        for res in res_before_relation
     )
 
     logger.info(
@@ -348,7 +317,6 @@ def test_run_spark_job_using_spark_client(
     lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str
 ):
     """Test that we can run a spark job using the spark-client snap and the created service account."""
-
     pods_before_spark_job = lightkube_client.list(Pod, namespace=kubeflow_enabled_namespace)
     driver_pods_before_spark_job = [
         pod.metadata.name
@@ -401,7 +369,6 @@ def test_run_spark_job_using_spark_client(
     driver_pod_logs = list(
         lightkube_client.log(spark_driver_pod_name, namespace=kubeflow_enabled_namespace)
     )
-    logger.error(driver_pod_logs)
     assert any(
-        ["Pi is roughly 3.14" in line for line in driver_pod_logs]
+        "Pi is roughly 3.14" in line for line in driver_pod_logs
     ), "Expected to find 'Pi is roughly 3.14' in Spark driver pod logs."

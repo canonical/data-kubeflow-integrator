@@ -32,7 +32,6 @@ def test_deploy(juju: jubilant.Juju, kubeflow_integrator: str):
 
 def test_configure_profile(juju: jubilant.Juju):
     """Set the `profile` config option in the charm. The charm should then transition to active state."""
-
     logger.info("Configuring the profile config option")
     juju.config(KUBEFLOW_INTEGRATOR, {"profile": "profile-name"})
     status = juju.wait(
