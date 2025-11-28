@@ -19,6 +19,7 @@ from lightkube.generic_resource import create_namespaced_resource
 from lightkube.models.meta_v1 import ObjectMeta
 from lightkube.resources.core_v1 import Namespace, Pod, Secret, ServiceAccount
 from lightkube.resources.rbac_authorization_v1 import Role, RoleBinding
+from tenacity import Retrying, stop_after_attempt, wait_fixed
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ METACONTROLLER_CHARM = "metacontroller-operator"
 METACONTROLLER_CHARM_CHANNEL = "latest/edge"
 RESOURCE_DISPATCHER = "resource-dispatcher"
 RESOURCE_DISPATCHER_CHANNEL = "latest/edge"
+ADMISSION_WEBHOOK = "admission-webhook"
+ADMISSION_WEBHOOK_CHANNEL = "latest/edge"
 SPARK_INTEGRATION_HUB = "spark-integration-hub-k8s"
 SPARK_INTEGRATION_HUB_CHANNEL = "3/edge"
 
@@ -169,6 +172,7 @@ def test_deploy_resource_dispatcher_setup(juju: jubilant.Juju):
     """Deploy the necessary setup for the resource dispatcher."""
     logger.info("Deploying metacontroller-operator charm...")
     juju.deploy(METACONTROLLER_CHARM, channel=METACONTROLLER_CHARM_CHANNEL, trust=True)
+    juju.deploy(ADMISSION_WEBHOOK, channel=ADMISSION_WEBHOOK_CHANNEL, trust=True)
     juju.deploy(
         RESOURCE_DISPATCHER,
         channel=RESOURCE_DISPATCHER_CHANNEL,
@@ -244,18 +248,37 @@ def test_resource_dispatcher_relations(
         == count
     )
 
-    res_after_relation = list(lightkube_client.list(resource_class, namespace=ALL_NS))
-    matching_res = [
-        res
-        for res in res_after_relation
-        if res.metadata
-        and res.metadata.name in resource_names
-        and res.metadata.namespace == kubeflow_enabled_namespace
-    ]
+    # Try checking for the resources with retries since resource-dispatcher may take some time to create them
+    for attempt in Retrying(stop=stop_after_attempt(30), wait=wait_fixed(10)):
+        with attempt:
+            res_after_relation = list(lightkube_client.list(resource_class, namespace=ALL_NS))
+            matching_res = [
+                res
+                for res in res_after_relation
+                if res.metadata
+                and res.metadata.name in resource_names
+                and res.metadata.namespace == kubeflow_enabled_namespace
+            ]
+            assert (
+                len(matching_res) == count
+            ), f"Expected exactly {count} matching {resource_type} after relation is created."
 
-    assert (
-        len(matching_res) == count
-    ), f"Expected exactly {count} matching {resource_type} after relation is created."
+
+def test_rolebinding_subject_properly_applied(
+    kubeflow_enabled_namespace: str, lightkube_client: lightkube.Client
+):
+    """Test that the RoleBinding created has the proper subject pointing to the correct ServiceAccount in correct namespace."""
+    spark_role_binding = lightkube_client.get(
+        RoleBinding,
+        name=EXPECTED_ROLEBINDING_NAME,
+        namespace=kubeflow_enabled_namespace,
+    )
+    assert spark_role_binding.subjects is not None
+    assert len(spark_role_binding.subjects) == 1
+    subject = spark_role_binding.subjects[0]
+    assert subject.kind == "ServiceAccount"
+    assert subject.name == SPARK_SERVICE_ACCOUNT_CONFIG_VALUE
+    assert subject.namespace == kubeflow_enabled_namespace
 
 
 def test_change_in_spark_properties_reflected(
@@ -312,7 +335,6 @@ def test_read_spark_config_using_spark_client(kubeflow_enabled_namespace: str):
     assert "spark.dynamicAllocation.shuffleTracking.enabled=true" in output
 
 
-@pytest.mark.skip(reason="Needs patching in resource-dispatcher to work...")
 def test_run_spark_job_using_spark_client(
     lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str
 ):

@@ -1,10 +1,18 @@
 juju:
+  agent-version: 3.6.9 # TODO: Unpin once Spark works on new juju release
   model-defaults:
     logging-config: <root>=INFO; unit=DEBUG
 providers:
   lxd:
     enable: true
     bootstrap: true
+  microk8s:
+    enable: true
+    bootstrap: true
+    addons: 
+      - dns
+      - hostpath-storage
+      - rbac
 host:
   packages:
     - pipx
