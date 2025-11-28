@@ -95,7 +95,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
 
     @property
     def spark_config(self) -> SparkConfig | None:
-        """Return current configuration kafka."""
+        """Return current configuration related to Spark."""
         try:
             return SparkConfig(**self.config)
         except Exception:
