@@ -66,7 +66,7 @@ class CharmStatuses(Enum):
         return StatusObject(
             status="blocked",
             message="Missing relation with: Spark",
-            action="Integrate with spark-integration-hub-k8s Charm",
+            action="Integrate with Spark Integration Hub charm.",
         )
 
 
