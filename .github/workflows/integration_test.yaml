@@ -112,6 +112,9 @@ jobs:
           sudo sysctl -w vm.swappiness=0
           sudo sysctl -w vm.max_map_count=262144
           sudo sysctl -w net.ipv4.tcp_retries2=5
+      - name: Install spark-client snap for Spark tests
+        run: |
+          sudo snap install spark-client --channel 3.5/edge
       - name: Download packed charm(s)
         timeout-minutes: 5
         uses: actions/download-artifact@v4
@@ -123,6 +126,7 @@ jobs:
         run: |
           sudo lxc image copy ubuntu:568f69ff1166 local:
           sudo lxc image alias create "juju/ubuntu@22.04/amd64" 568f69ff1166
+
       - name: Run spread job
         timeout-minutes: 180
         id: spread
