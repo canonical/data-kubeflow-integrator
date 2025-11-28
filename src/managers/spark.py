@@ -64,44 +64,33 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
-        if scope == "app":
-            # Show error status on app only
-            status_list = []
-            spark_config = None
+        # Show error status on app only
+        status_list = []
+        spark_config = None
 
-            try:
-                spark_config = SparkConfig(**self.state.charm.config)
-            except ValidationError as err:
-                self.logger.warning(str(err))
+        try:
+            spark_config = SparkConfig(**self.state.charm.config)
+        except ValidationError as err:
+            self.logger.warning(str(err))
 
-                # If Spark is related
-                if len(self.spark_requirer.relations) > 0:
-                    missing = [
-                        str(error["loc"][0])
-                        for error in err.errors()
-                        if error["type"] == "missing"
-                    ]
-                    invalid = [
-                        str(error["loc"][0])
-                        for error in err.errors()
-                        if error["type"] != "missing"
-                    ]
+            # If Spark is related
+            if len(self.spark_requirer.relations) > 0:
+                missing = [
+                    str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
+                ]
+                invalid = [
+                    str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
+                ]
 
-                    if missing:
-                        status_list.append(
-                            ConfigStatuses.missing_config_parameters(fields=missing)
-                        )
-                    if invalid:
-                        status_list.append(
-                            ConfigStatuses.invalid_config_parameters(fields=invalid)
-                        )
-            if spark_config and not self.is_spark_related:
-                # Block the charm since we need the integration with spark
-                status_list.append(CharmStatuses.missing_integration_with_spark())
+                if missing:
+                    status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
+                if invalid:
+                    status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
+        if spark_config and not self.is_spark_related:
+            # Block the charm since we need the integration with spark
+            status_list.append(CharmStatuses.missing_integration_with_spark())
 
-            return status_list or [CharmStatuses.ACTIVE_IDLE.value]
-        else:
-            return [CharmStatuses.ACTIVE_IDLE.value]
+        return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
     @property
     def spark_requirer(self) -> SparkServiceAccountRequirer:
