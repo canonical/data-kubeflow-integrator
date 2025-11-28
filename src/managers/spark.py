@@ -31,7 +31,6 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
         """Update spark relation data with latest config."""
         spark_config = self.state.spark_config
         profile_config = self.state.profile_config
-        breakpoint()
         if spark_config and profile_config:
             username = spark_config.spark_service_account
             profile = profile_config.profile
