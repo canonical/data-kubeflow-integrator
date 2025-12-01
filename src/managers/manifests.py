@@ -122,6 +122,19 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             poddefault_manifests.append(poddefault)
         return ReconciledManifests(secrets=secrets_manifests, poddefaults=poddefault_manifests)
 
+    def _patch_rolebinding_subject_namespace(self, rolebinding: dict) -> dict:
+        """Patch the namespace of the subject in the rolebinding."""
+
+        if len(rolebinding.get("subjects", [])) == 0:
+            return rolebinding
+
+        for subject in rolebinding["subjects"]:
+            if "namespace" not in subject:
+                continue
+            subject["namespace"] = "{{ NAMESPACE }}"
+
+        return rolebinding
+
     def reconcile_spark_manifests(
         self, raw_manifests: str, service_account: str
     ) -> ReconciledManifests:
@@ -164,7 +177,9 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
         rolebindings_manifest: list[KubernetesManifest] = (
             [
-                KubernetesManifest(manifest_content=yaml.dump(res))
+                KubernetesManifest(
+                    manifest_content=yaml.dump(self._patch_rolebinding_subject_namespace(res))
+                )
                 for res in manifest_yaml
                 if res["kind"] == "RoleBinding"
             ]

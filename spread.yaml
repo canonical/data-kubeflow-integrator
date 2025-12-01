@@ -61,6 +61,7 @@ backends:
       # min instead of 3 min between every spread job)
       juju destroy-model --force --no-wait --destroy-storage --no-prompt testing
       juju kill-controller --no-prompt concierge-lxd
+      juju kill-controller --no-prompt concierge-microk8s
     restore: |
       rm -rf "$SPREAD_PATH"
 

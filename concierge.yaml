@@ -6,6 +6,13 @@ providers:
   lxd:
     enable: true
     bootstrap: true
+  microk8s:
+    enable: true
+    bootstrap: true
+    addons: 
+      - dns
+      - hostpath-storage
+      - rbac
 host:
   packages:
     - pipx
