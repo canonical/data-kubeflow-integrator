@@ -49,6 +49,8 @@ def test_integrate_kubeflow_with_resource_dispatcher(
     Test deploying the kubeflow-integrator charm and resource dispatcher, integrate
     them and validate all active.
     """
+    juju.cli("switch", juju.model, include_model=False)
+
     # Install resource dispatcher and its dependencies
     juju.deploy(METACONTROLLER_CHARM, trust=True)
     juju.deploy(ADMISSION_WEBHOOK_CHARM, trust=True)
@@ -93,18 +95,14 @@ def test_integrate_kubeflow_with_resource_dispatcher(
             assert "kubernetes_manifests" not in poddefaults_rel_data[1]
 
 
-def test_manifests_generation_with_opensearch(
-    juju: jubilant.Juju, juju_vm: jubilant.Juju, vm_controller: str, k8s_controller: str
-):
+def test_manifests_generation_with_opensearch(juju: jubilant.Juju, juju_vm: jubilant.Juju):
     """Tesing Manifests Generation when related to OpenSearch.
 
     Deploy opensearch, integrate it with kubeflow-integrator and make sure that
     manifests are generated in the relation data.
     """
-    juju.config(KUBEFLOW_INTEGRATOR_APP_NAME, {"opensearch-index-name": "index-name"})
-
     # Switch to VM controller
-    juju.cli("switch", vm_controller, include_model=False)
+    juju.cli("switch", juju_vm.model, include_model=False)
 
     logger.info("Configure model with opensearch required config")
     juju_vm.model_config(OPENSEARCH_MODEL_CONFIG)
@@ -124,6 +122,7 @@ def test_manifests_generation_with_opensearch(
         app=SELF_SIGNED_CERTIFICATES_APP_NAME,
         channel=SELF_SIGNED_CERTIFICATES_CHANNEL,
     )
+
     logger.info("Integrate opensearch with self-signed-certificates")
     # Integrate opensearch with self-signed-certificates
     juju_vm.integrate(OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME)
@@ -139,10 +138,11 @@ def test_manifests_generation_with_opensearch(
     juju_vm.offer(OPENSEARCH_APP_NAME, endpoint="opensearch-client")
 
     # Switch back to k8s controller
-    juju_vm.cli("switch", k8s_controller, include_model=False)
+    juju_vm.cli("switch", juju.model, include_model=False)
+    juju.consume(f"{juju_vm.model}.{OPENSEARCH_APP_NAME}")
 
-    juju.consume(f"{juju_vm.model}.{OPENSEARCH_APP_NAME}", controller=vm_controller)
-
+    logger.info("Configuring kubeflow-integrator for opensearch integration")
+    juju.config(KUBEFLOW_INTEGRATOR_APP_NAME, {"opensearch-index-name": "foobar"})
     logger.info("Integrate opensearch with kubeflow-integrator")
     juju.integrate(
         f"{OPENSEARCH_APP_NAME}:opensearch-client",
@@ -172,7 +172,7 @@ def test_manifests_generation_with_opensearch(
     for secret_manifest in secrets_k8s_manifests:
         secret = validate_k8s_secret(secret_manifest)
         if secret.metadata.name == "opensearch-secret":
-            assert secret.data["OPENSEARCH_INDEX"] == base64.b64encode(b"index-name").decode()
+            assert secret.data["OPENSEARCH_INDEX"] == base64.b64encode(b"foobar").decode()
 
     assert "kubernetes_manifests" in poddefaults_rel_data[1]
     poddefaults_k8s_manifests = json.loads(poddefaults_rel_data[1]["kubernetes_manifests"])
