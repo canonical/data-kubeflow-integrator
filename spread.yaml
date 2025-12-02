@@ -42,6 +42,8 @@ backends:
     environment:
       CONCIERGE_EXTRA_SNAPS: charmcraft
       CONCIERGE_EXTRA_DEBS: pipx
+      DOCKERHUB_MIRROR: '$(HOST: echo $DOCKERHUB_MIRROR)'
+      CONCIERGE_MICROK8S_CHANNEL: 1.34-strict/stable
     systems:
       - ubuntu-24.04:
           username: runner
@@ -59,9 +61,10 @@ backends:
       # Use instead of `concierge restore` to save time between tests
       # For example, with microk8s, using `concierge restore` takes twice as long as this (e.g. 6
       # min instead of 3 min between every spread job)
-      juju destroy-model --force --no-wait --destroy-storage --no-prompt testing
-      juju kill-controller --no-prompt concierge-lxd
+      juju destroy-model --force --no-wait --destroy-storage --no-prompt concierge-microk8s:testing
+      juju destroy-model --force --no-wait --destroy-storage --no-prompt concierge-lxd:testing
       juju kill-controller --no-prompt concierge-microk8s
+      juju kill-controller --no-prompt concierge-lxd
     restore: |
       rm -rf "$SPREAD_PATH"
 
@@ -114,6 +117,30 @@ prepare: |
   cd "$SPREAD_PATH"
   snap install --classic concierge
 
+  if [[ -n "$DOCKERHUB_MIRROR" ]] && ([[ $SPREAD_SUITE == *"microk8s"* ]]
+  then
+    # Running on IS-hosted runner; configure microk8s to use Docker Hub mirror
+    # Run before concierge prepare because of https://github.com/canonical/concierge/issues/75
+
+    snap install microk8s --channel "$CONCIERGE_MICROK8S_CHANNEL" --classic
+
+    # Wait for microk8s to populate iptables
+    # https://chat.canonical.com/canonical/pl/jo5cg6wqjjrudqd5ybj6hhttee
+    until [[ -n $(iptables --list | grep -i "microk8s") ]]
+    do
+      echo "MicroK8s has not yet configured iptables."
+      sleep 10
+    done
+
+    tee /var/snap/microk8s/current/args/certs.d/docker.io/hosts.toml << EOF
+    server = "$DOCKERHUB_MIRROR"
+    [host."${DOCKERHUB_MIRROR#'https://'}"]
+    capabilities = ["pull", "resolve"]
+  EOF
+    microk8s stop
+    microk8s start
+  fi
+
   # Install charmcraft & pipx (on lxd-vm backend)
   concierge prepare --trace
 
@@ -128,6 +155,13 @@ prepare-each: |
   fi
   # `concierge prepare` needs to be run for each spread job in case Juju version changed
   concierge prepare --trace
+
+  if [[ $SPREAD_SUITE == *"lxd"* ]]
+  then
+    juju switch concierge-lxd
+  else
+    juju switch concierge-microk8s
+  fi
 
   # Unable to set constraint on all models because of Juju bug:
   # https://bugs.launchpad.net/juju/+bug/2065050
