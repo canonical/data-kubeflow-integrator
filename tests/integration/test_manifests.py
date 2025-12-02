@@ -136,7 +136,7 @@ def test_manifests_generation_with_opensearch(
     )
 
     logger.info("Offering the opensearch client relation")
-    juju_vm.offer(OPENSEARCH_APP_NAME, "opensearch-client")
+    juju_vm.offer(OPENSEARCH_APP_NAME, endpoint="opensearch-client")
 
     # Switch back to k8s controller
     juju_vm.cli("switch", k8s_controller, include_model=False)
