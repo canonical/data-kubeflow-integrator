@@ -9,7 +9,12 @@ from pathlib import Path
 
 import jubilant
 import yaml
-from helpers import get_application_data, validate_k8s_poddefault, validate_k8s_secret
+from helpers import (
+    OPENSEARCH_MODEL_CONFIG,
+    get_application_data,
+    validate_k8s_poddefault,
+    validate_k8s_secret,
+)
 from tenacity import Retrying, stop_after_attempt, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -25,7 +30,7 @@ OPENSEARCH_PROFILE_CONFIG = "testing"
 OPENSEARCH_APP_NAME = "opensearch"
 
 SELF_SIGNED_CERTIFICATES_CHARM = "self-signed-certificates"
-SELF_SIGNED_CERTIFICATES_CHANNEL = "latest/stable"
+SELF_SIGNED_CERTIFICATES_CHANNEL = "1/stable"
 SELF_SIGNED_CERTIFICATES_APP_NAME = "self-signed-certificates"
 
 
@@ -37,17 +42,13 @@ RESOURCE_DISPATCHER_CHANNEL = "latest/edge"
 
 
 def test_integrate_kubeflow_with_resource_dispatcher(
-    juju: jubilant.Juju, microk8s_model: str, kubeflow_integrator: str
+    juju: jubilant.Juju, kubeflow_integrator: str
 ):
-    """Tesing the integration between kubeflow-integration and resource disptacher.
+    """Tesing the integration between kubeflow-integrator and resource disptacher.
 
     Test deploying the kubeflow-integrator charm and resource dispatcher, integrate
     them and validate all active.
     """
-    # save the temp_model
-    temp_model = juju.model
-    # Switch to the k8s model
-    juju.model = microk8s_model
     # Install resource dispatcher and its dependencies
     juju.deploy(METACONTROLLER_CHARM, trust=True)
     juju.deploy(ADMISSION_WEBHOOK_CHARM, trust=True)
@@ -57,59 +58,26 @@ def test_integrate_kubeflow_with_resource_dispatcher(
         channel=RESOURCE_DISPATCHER_CHANNEL,
         app=RESOURCE_DISPATCHER_APP_NAME,
     )
-
-    # Wait for charms to be active
-    status = juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
-    )
-
-    logger.info(status)
-
-    # Offer interfaces
-    logger.info("Offering resource dispatcher interfaces")
-    juju.offer(
-        f"{microk8s_model}.{RESOURCE_DISPATCHER_APP_NAME}",
-        name="secrets-dispatcher",
-        endpoint="secrets",
-    )
-    juju.offer(
-        f"{microk8s_model}.{RESOURCE_DISPATCHER_APP_NAME}",
-        name="poddefaults-dispatcher",
-        endpoint="pod-defaults",
-    )
-
-    # Switch to the lxd model
-    logger.info("Switching to kubeflow-integrator model")
-    juju.model = temp_model
-
     juju.deploy(
         kubeflow_integrator,
         app=KUBEFLOW_INTEGRATOR_APP_NAME,
         config={"profile": "profile-name"},
     )
-
-    # Consume offers
-    logger.info("Consuming offers")
-    juju.consume(f"{microk8s_model}.secrets-dispatcher")
-    juju.consume(f"{microk8s_model}.poddefaults-dispatcher")
-
-    logger.info("Waiting for all units to become active")
-    juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
+    juju.integrate(
+        f"{KUBEFLOW_INTEGRATOR_APP_NAME}:secrets", f"{RESOURCE_DISPATCHER_APP_NAME}:secrets"
+    )
+    juju.integrate(
+        f"{KUBEFLOW_INTEGRATOR_APP_NAME}:pod-defaults",
+        f"{RESOURCE_DISPATCHER_APP_NAME}:pod-defaults",
     )
 
-    # Integrate kubeflow-integrator with resource-dispatcher
-    logger.info("Integrate kubeflow-integrator with resource-dispatcher")
-    juju.integrate(f"{KUBEFLOW_INTEGRATOR_APP_NAME}:secrets", "secrets-dispatcher")
-    juju.integrate(f"{KUBEFLOW_INTEGRATOR_APP_NAME}:pod-defaults", "poddefaults-dispatcher")
-
-    # Wait for the relatio data to be created
-
-    # Switch to k8s model
-    juju.model = microk8s_model
+    # Wait for charms to be active
+    status = juju.wait(
+        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
+    )
+    logger.info(status)
 
     logger.info("Checking secrets and pod defaults relation data")
-
     for attempt in Retrying(stop=stop_after_attempt(5), wait=wait_fixed(3), reraise=True):
         with attempt:
             # Check application data
@@ -124,21 +92,26 @@ def test_integrate_kubeflow_with_resource_dispatcher(
             assert poddefaults_rel_data[1] == {}
             assert "kubernetes_manifests" not in poddefaults_rel_data[1]
 
-    juju.model = temp_model
 
-
-def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_model: str):
+def test_manifests_generation_with_opensearch(
+    juju: jubilant.Juju, juju_vm: jubilant.Juju, vm_controller: str, k8s_controller: str
+):
     """Tesing Manifests Generation when related to OpenSearch.
 
     Deploy opensearch, integrate it with kubeflow-integrator and make sure that
     manifests are generated in the relation data.
     """
-    temp_model = juju.model
-    # Deploy opensearch and self-signed-certificates
-    logger.info("Deploying OpenSearch charm")
     juju.config(KUBEFLOW_INTEGRATOR_APP_NAME, {"opensearch-index-name": "index-name"})
 
-    juju.deploy(
+    # Switch to VM controller
+    juju.cli("switch", vm_controller, include_model=False)
+
+    logger.info("Configure model with opensearch required config")
+    juju_vm.model_config(OPENSEARCH_MODEL_CONFIG)
+
+    # Deploy opensearch and self-signed-certificates
+    logger.info("Deploying OpenSearch charm")
+    juju_vm.deploy(
         OPENSEARCH_CHARM,
         app=OPENSEARCH_APP_NAME,
         channel=OPENSEARCH_CHANNEL,
@@ -146,25 +119,35 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
     )
 
     logger.info("Deploying self-signed-certificates charm")
-    juju.deploy(
+    juju_vm.deploy(
         SELF_SIGNED_CERTIFICATES_CHARM,
         app=SELF_SIGNED_CERTIFICATES_APP_NAME,
         channel=SELF_SIGNED_CERTIFICATES_CHANNEL,
     )
     logger.info("Integrate opensearch with self-signed-certificates")
     # Integrate opensearch with self-signed-certificates
-    juju.integrate(OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME)
+    juju_vm.integrate(OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME)
 
-    logger.info("Waiting for opensearch to be active")
-    juju.wait(
-        lambda status: jubilant.all_active(status, OPENSEARCH_APP_NAME)
-        and jubilant.all_agents_idle(status, OPENSEARCH_APP_NAME),
+    logger.info("Waiting for apps to settle in...")
+    juju_vm.wait(
+        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status),
         delay=5,
-        timeout=600,
+        timeout=1800,
     )
 
+    logger.info("Offering the opensearch client relation")
+    juju_vm.offer(OPENSEARCH_APP_NAME, "opensearch-client")
+
+    # Switch back to k8s controller
+    juju_vm.cli("switch", k8s_controller, include_model=False)
+
+    juju.consume(f"{juju_vm.model}.{OPENSEARCH_APP_NAME}", controller=vm_controller)
+
     logger.info("Integrate opensearch with kubeflow-integrator")
-    juju.integrate(OPENSEARCH_APP_NAME, KUBEFLOW_INTEGRATOR_APP_NAME)
+    juju.integrate(
+        f"{OPENSEARCH_APP_NAME}:opensearch-client",
+        f"{KUBEFLOW_INTEGRATOR_APP_NAME}:{OPENSEARCH_RELATION_NAME}",
+    )
 
     logger.info("Waiting for kubeflow-integrator to be active")
     juju.wait(
@@ -173,9 +156,6 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
         delay=5,
         timeout=600,
     )
-
-    # Switch to k8s model
-    juju.model = microk8s_model
 
     # Check application data
     secrets_rel_data = list(
@@ -198,5 +178,3 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, microk8s_mode
     poddefaults_k8s_manifests = json.loads(poddefaults_rel_data[1]["kubernetes_manifests"])
     for poddefault_manifest in poddefaults_k8s_manifests:
         validate_k8s_poddefault(poddefault_manifest)
-
-    juju.model = temp_model

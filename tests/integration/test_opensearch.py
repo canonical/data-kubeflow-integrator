@@ -22,7 +22,7 @@ OPENSEARCH_PROFILE_CONFIG = "testing"
 OPENSEARCH_APP_NAME = "opensearch"
 
 SELF_SIGNED_CERTIFICATES_CHARM = "self-signed-certificates"
-SELF_SIGNED_CERTIFICATES_CHANNEL = "latest/stable"
+SELF_SIGNED_CERTIFICATES_CHANNEL = "1/stable"
 SELF_SIGNED_CERTIFICATES_APP_NAME = "self-signed-certificates"
 
 
@@ -58,14 +58,17 @@ def test_deploy_and_config_opensearch(juju: jubilant.Juju, kubeflow_integrator: 
     )
 
 
-def test_integrate_with_opensearch(juju: jubilant.Juju):
+def test_integrate_with_opensearch(
+    juju: jubilant.Juju, juju_vm: jubilant.Juju, vm_controller: str, k8s_controller: str
+):
     """Deploy OpenSearch, integrate with kubeflow-integrator. The charm should be in an active state with configured index in the relation."""
-    logger.info("Deploying OpenSearch charm")
+    juju.cli("switch", vm_controller, include_model=False)
 
     logger.info("Configure model with opensearch required config")
-    juju.model_config(OPENSEARCH_MODEL_CONFIG)
+    juju_vm.model_config(OPENSEARCH_MODEL_CONFIG)
 
-    juju.deploy(
+    logger.info("Deploying OpenSearch charm")
+    juju_vm.deploy(
         OPENSEARCH_CHARM,
         app=OPENSEARCH_APP_NAME,
         channel=OPENSEARCH_CHANNEL,
@@ -73,35 +76,42 @@ def test_integrate_with_opensearch(juju: jubilant.Juju):
     )
 
     logger.info("Deploying self-signed-certificates charm")
-    juju.deploy(
+    juju_vm.deploy(
         SELF_SIGNED_CERTIFICATES_CHARM,
         app=SELF_SIGNED_CERTIFICATES_APP_NAME,
         channel=SELF_SIGNED_CERTIFICATES_CHANNEL,
     )
     logger.info("Integrate opensearch with self-signed-certificates")
     # Integrate opensearch with self-signed-certificates
-    juju.integrate(OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME)
+    juju_vm.integrate(OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME)
 
-    # Wait for opensearch to be active
-
-    juju.wait(
-        lambda status: jubilant.all_active(
-            status, OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME
-        )
-        and jubilant.all_agents_idle(
-            status, OPENSEARCH_APP_NAME, SELF_SIGNED_CERTIFICATES_APP_NAME
-        ),
-        timeout=600,
+    logger.info("Waiting for apps to settle in...")
+    juju_vm.wait(
+        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status),
         delay=5,
+        timeout=1800,
     )
 
-    logger.info("Integrate opensearch with kubeflow-integrator")
-    juju.integrate(OPENSEARCH_APP_NAME, KUBEFLOW_INTEGRATOR_APP_NAME)
+    logger.info("Offering the opensearch client relation")
+    juju_vm.offer(OPENSEARCH_APP_NAME, "opensearch-client")
 
-    # Wat for kubeflow-integrator to be active
+    # Switch back to k8s controller
+    juju_vm.cli("switch", k8s_controller, include_model=False)
+
+    juju.consume(f"{juju_vm.model}.{OPENSEARCH_APP_NAME}", controller=vm_controller)
+
+    logger.info("Integrate opensearch with kubeflow-integrator")
+    juju.integrate(
+        f"{OPENSEARCH_APP_NAME}:opensearch-client",
+        f"{KUBEFLOW_INTEGRATOR_APP_NAME}:{OPENSEARCH_RELATION_NAME}",
+    )
+
+    logger.info("Waiting for kubeflow-integrator to be active")
     juju.wait(
         lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
-        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME),
+        delay=5,
+        timeout=600,
     )
 
     logger.info("Validating relation data")

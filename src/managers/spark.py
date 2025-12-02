@@ -64,7 +64,6 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
-        # Show error status on app only
         status_list = []
         spark_config = None
 
