@@ -128,7 +128,6 @@ def test_integrate_with_spark_integration_hub(juju: jubilant.Juju):
     )
 
 
-@pytest.mark.skip
 def test_resource_manifest_in_integration_hub_relation(juju: jubilant.Juju):
     """Check that the integration-hub is indeed sharing resource manifests to the kubeflow-integrator."""
     relation_data = next(
@@ -262,7 +261,6 @@ def test_resource_dispatcher_relations(
     ), f"Expected exactly {count} matching {resource_type} after relation is created."
 
 
-@pytest.mark.skip
 def test_change_in_spark_properties_reflected(
     juju: jubilant.Juju, lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str
 ):
