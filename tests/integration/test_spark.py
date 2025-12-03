@@ -249,7 +249,7 @@ def test_resource_dispatcher_relations(
     )
 
     # Try checking for the resources with retries since resource-dispatcher may take some time to create them
-    for attempt in Retrying(stop=stop_after_attempt(10), wait=wait_fixed(10)):
+    for attempt in Retrying(stop=stop_after_attempt(30), wait=wait_fixed(10)):
         with attempt:
             res_after_relation = list(lightkube_client.list(resource_class, namespace=ALL_NS))
             matching_res = [
