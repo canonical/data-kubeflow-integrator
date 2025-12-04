@@ -215,7 +215,9 @@ def test_charm_active_and_manifests_generated_when_serviceaccount_configured(
     }
     assert env_vars["SPARK_SERVICE_ACCOUNT"] == "spark"
     assert env_vars["SPARK_NAMESPACE"] == {"fieldRef": {"fieldPath": "metadata.namespace"}}
-    assert pipeline_poddefault["spec"]["selector"] == {"matchLabels": {"access-spark": "true"}}
+    assert pipeline_poddefault["spec"]["selector"] == {
+        "matchLabels": {"access-spark-pipeline": "true"}
+    }
 
     assert notebook_poddefault["apiVersion"] == "kubeflow.org/v1alpha1"
     assert notebook_poddefault["kind"] == "PodDefault"
@@ -226,4 +228,6 @@ def test_charm_active_and_manifests_generated_when_serviceaccount_configured(
     }
     assert env_vars["SPARK_SERVICE_ACCOUNT"] == "spark"
     assert env_vars["SPARK_NAMESPACE"] == {"fieldRef": {"fieldPath": "metadata.namespace"}}
-    assert notebook_poddefault["spec"]["selector"] == {"matchLabels": {"access-spark": "true"}}
+    assert notebook_poddefault["spec"]["selector"] == {
+        "matchLabels": {"access-spark-notebook": "true"}
+    }

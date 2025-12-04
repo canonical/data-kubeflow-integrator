@@ -30,8 +30,10 @@ from constants import (
     SPARK_DRIVER_PORT,
     SPARK_NOTEBOOK_PODDEFAULT_DESC,
     SPARK_NOTEBOOK_PODDEFAULT_NAME,
+    SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL,
     SPARK_PIPELINE_PODDEFAULT_DESC,
     SPARK_PIPELINE_PODDEFAULT_NAME,
+    SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
 )
 from core.config import ProfileConfig
 from core.state import GlobalState
@@ -194,6 +196,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             poddefault_name=SPARK_PIPELINE_PODDEFAULT_NAME,
             poddefault_description=SPARK_PIPELINE_PODDEFAULT_DESC,
             fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+            selector_name=SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
         )
         spark_notebook_poddefault = generate_poddefault_manifest(
             self.poddefault_k8s_template,
@@ -217,6 +220,7 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 "traffic.sidecar.istio.io/excludeOutboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
             },
             fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+            selector_name=SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL,
         )
         poddefaults_manifest = (
             [spark_pipeline_poddefault, spark_notebook_poddefault]

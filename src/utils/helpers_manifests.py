@@ -89,6 +89,7 @@ def generate_poddefault_manifest(
     annotations: dict[str, str] | None = None,
     args: list[str] | None = None,
     fieldrefs: dict[str, str] | None = None,
+    selector_name: str | None = None,
 ):
     """Generate PodDefault manifest for a database."""
     poddefault_secret_volumes: list[PodDefaultSecretVolume] | None = None
@@ -132,7 +133,7 @@ def generate_poddefault_manifest(
         name=poddefault_name or K8S_DATABASE_PODDEFAULT_NAME[database_name],
         namespace=None if profile == "*" else profile,
         desc=poddefault_description or K8S_DATABASE_PODDEFAULT_DESC[database_name],
-        selector_name=K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL[database_name],
+        selector_name=selector_name or K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL[database_name],
         env_vars=poddefault_env_vars,
         secret_volumes=poddefault_secret_volumes,
         annotations=poddefault_annotations,

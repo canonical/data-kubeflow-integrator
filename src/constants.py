@@ -75,6 +75,8 @@ K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL = {
     KAFKA: "access-kafka",
     SPARK: "access-spark",
 }
+SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL = "access-spark-notebook"
+SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL = "access-spark-pipeline"
 
 
 K8S_DATABASE_TLS_CERT_PATH = {

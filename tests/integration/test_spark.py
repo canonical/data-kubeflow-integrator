@@ -16,6 +16,7 @@ import yaml
 from helpers import get_application_data
 from lightkube import ALL_NS
 from lightkube.generic_resource import create_namespaced_resource
+from lightkube.models.core_v1 import Container, PodSpec
 from lightkube.models.meta_v1 import ObjectMeta
 from lightkube.resources.core_v1 import Namespace, Pod, Secret, ServiceAccount
 from lightkube.resources.rbac_authorization_v1 import Role, RoleBinding
@@ -54,8 +55,12 @@ EXPECTED_NOTEBOOK_PODDEFAULT_NAME = "pyspark-notebook"
 EXPECTED_PIPELINE_PODDEFAULT_NAME = "pyspark-pipeline"
 
 SPARK_IMAGE = "ghcr.io/canonical/charmed-spark:3.5.5-22.04_edge"
-SPARK_NOTEBOOK_IMAGE = "ghcr.io/canonical/charmed-spark-jupyterlab:3.5.5-4.0.11-22.04_edge"
 SPARK_EXAMPLES_JAR = "spark-examples_2.12-3.5.5.jar"
+
+SPARK_DRIVER_PORT = 37371
+SPARK_BLOCK_MANAGER_PORT = 6060
+SPARK_PIPELINE_SELECTOR_LABEL = "access-spark-pipeline"
+SPARK_NOTEBOOK_SELECTOR_LABEL = "access-spark-notebook"
 
 POD_DEFAULT = create_namespaced_resource(
     group="kubeflow.org", version="v1alpha1", kind="PodDefault", plural="poddefaults"
@@ -75,7 +80,10 @@ def kubeflow_enabled_namespace(lightkube_client: lightkube.Client):
     namespace = Namespace(
         metadata=ObjectMeta(
             name=namespace_name,
-            labels={"user.kubeflow.org/enabled": "true"},
+            labels={
+                "user.kubeflow.org/enabled": "true",
+                "app.kubernetes.io/part-of": "kubeflow-profile",
+            },
         )
     )
     logger.info(
@@ -279,6 +287,79 @@ def test_rolebinding_subject_properly_applied(
     assert subject.kind == "ServiceAccount"
     assert subject.name == SPARK_SERVICE_ACCOUNT_CONFIG_VALUE
     assert subject.namespace == kubeflow_enabled_namespace
+
+
+@pytest.mark.parametrize(
+    "pod_name,selector_label",
+    [
+        ("notebook", SPARK_NOTEBOOK_SELECTOR_LABEL),
+        ("pipeline", SPARK_PIPELINE_SELECTOR_LABEL),
+    ],
+)
+def test_pod_default_gets_applied(
+    kubeflow_enabled_namespace: str,
+    lightkube_client: lightkube.Client,
+    pod_name: str,
+    selector_label: str,
+):
+    """Test that the PodDefault created by the kubeflow integrator is properly applied to a pod with the matching selector label."""
+    lightkube_client.create(
+        Pod(
+            metadata=ObjectMeta(
+                name=pod_name,
+                namespace=kubeflow_enabled_namespace,
+                labels={selector_label: "true"},
+            ),
+            spec=PodSpec(
+                containers=[
+                    Container(
+                        name="nginx",
+                        image="nginx:latest",
+                    )
+                ]
+            ),
+        )
+    )
+    for attempt in Retrying(
+        stop=stop_after_attempt(30),
+        wait=wait_fixed(10),
+    ):
+        with attempt:
+            notebook_pod = lightkube_client.get(
+                Pod,
+                name=pod_name,
+                namespace=kubeflow_enabled_namespace,
+            )
+            assert notebook_pod.spec is not None
+            container = notebook_pod.spec.containers[0]
+            env_vars = {
+                env.name: {"value": env.value, "valueFrom": env.valueFrom} for env in container.env
+            }
+            assert env_vars["SPARK_SERVICE_ACCOUNT"]["value"] == SPARK_SERVICE_ACCOUNT_CONFIG_VALUE
+            assert (
+                env_vars["SPARK_NAMESPACE"]["valueFrom"].fieldRef.fieldPath == "metadata.namespace"
+            )
+
+            if pod_name == "notebook":
+                assert container.args == [
+                    "--namespace",
+                    "$SPARK_NAMESPACE",
+                    "--username",
+                    "$SPARK_SERVICE_ACCOUNT",
+                    "--conf",
+                    f"spark.driver.port={SPARK_DRIVER_PORT}",
+                    "--conf",
+                    f"spark.blockManager.port={SPARK_BLOCK_MANAGER_PORT}",
+                ]
+                annotations = notebook_pod.metadata.annotations
+                assert (
+                    annotations["traffic.sidecar.istio.io/excludeInboundPorts"]
+                    == f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}"
+                )
+                assert (
+                    annotations["traffic.sidecar.istio.io/excludeOutboundPorts"]
+                    == f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}"
+                )
 
 
 def test_change_in_spark_properties_reflected(

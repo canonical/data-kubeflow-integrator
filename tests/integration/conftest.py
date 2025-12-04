@@ -49,20 +49,6 @@ def kubeflow_integrator(ubuntu_base: str | None) -> Path:
     return path
 
 
-# @pytest.fixture(scope="module")
-# def juju(request: pytest.FixtureRequest):
-#     keep_models = bool(request.config.getoption("--keep-models"))
-
-#     with jubilant.temp_model(keep=keep_models) as juju:
-#         juju.wait_timeout = 10 * 60
-
-#         yield juju  # run the test
-
-#         if request.session.testsfailed:
-#             log = juju.debug_log(limit=30)
-#             print(log, end="")
-
-
 def get_cloud_names(cloud_type: Literal["lxd", "k8s"]) -> str | None:
     """Gets controller name for specified cloud, i.e. localhost, microk8s."""
     clouds = json.loads(jubilant.Juju().cli("clouds", "--format", "json", include_model=False))
