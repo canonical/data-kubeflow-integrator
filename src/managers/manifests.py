@@ -238,16 +238,11 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
     def send_manifests(self, reconciled_manifests: ReconciledManifests):
         """Send k8s manifests to the manifests provider."""
-        if len(reconciled_manifests.secrets):
-            self.manifests_secret_wrapper.send_data(reconciled_manifests.secrets)
-        if len(reconciled_manifests.poddefaults):
-            self.manifests_poddefault_wrapper.send_data(reconciled_manifests.poddefaults)
-        if len(reconciled_manifests.serviceaccounts):
-            self.manifests_service_account_wrapper.send_data(reconciled_manifests.serviceaccounts)
-        if len(reconciled_manifests.roles):
-            self.manifests_roles_wrapper.send_data(reconciled_manifests.roles)
-        if len(reconciled_manifests.role_bindings):
-            self.manifests_rolebindings_wrapper.send_data(reconciled_manifests.role_bindings)
+        self.manifests_secret_wrapper.send_data(reconciled_manifests.secrets)
+        self.manifests_poddefault_wrapper.send_data(reconciled_manifests.poddefaults)
+        self.manifests_service_account_wrapper.send_data(reconciled_manifests.serviceaccounts)
+        self.manifests_roles_wrapper.send_data(reconciled_manifests.roles)
+        self.manifests_rolebindings_wrapper.send_data(reconciled_manifests.role_bindings)
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""

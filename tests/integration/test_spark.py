@@ -15,6 +15,7 @@ import pytest
 import yaml
 from helpers import get_application_data
 from lightkube import ALL_NS
+from lightkube.core.exceptions import ApiError
 from lightkube.generic_resource import create_namespaced_resource
 from lightkube.models.core_v1 import Container, PodSpec
 from lightkube.models.meta_v1 import ObjectMeta
@@ -257,7 +258,7 @@ def test_resource_dispatcher_relations(
     )
 
     # Try checking for the resources with retries since resource-dispatcher may take some time to create them
-    for attempt in Retrying(stop=stop_after_attempt(30), wait=wait_fixed(10)):
+    for attempt in Retrying(stop=stop_after_attempt(20), wait=wait_fixed(10)):
         with attempt:
             res_after_relation = list(lightkube_client.list(resource_class, namespace=ALL_NS))
             matching_res = [
@@ -321,7 +322,7 @@ def test_pod_default_gets_applied(
         )
     )
     for attempt in Retrying(
-        stop=stop_after_attempt(30),
+        stop=stop_after_attempt(20),
         wait=wait_fixed(10),
     ):
         with attempt:
@@ -475,3 +476,161 @@ def test_run_spark_job_using_spark_client(
     assert any(
         "Pi is roughly 3.14" in line for line in driver_pod_logs
     ), "Expected to find 'Pi is roughly 3.14' in Spark driver pod logs."
+
+
+def test_remove_spark_integration_hub_integration(
+    juju: jubilant.Juju, lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str
+):
+    """Remove the integration between kubeflow integrator and spark integration hub, and see that if the resources are removed."""
+    logger.info("Removing integration between kubeflow integrator and spark integration hub...")
+    juju.remove_relation(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
+    juju.wait(
+        lambda status: jubilant.all_active(
+            status,
+            SPARK_INTEGRATION_HUB,
+            RESOURCE_DISPATCHER,
+            ADMISSION_WEBHOOK,
+            METACONTROLLER_CHARM,
+        )
+        and jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
+        delay=5,
+    )
+
+    for attempt in Retrying(
+        stop=stop_after_attempt(20),
+        wait=wait_fixed(10),
+    ):
+        for resource_type, resource_name in [
+            (Secret, EXPECTED_SECRET_NAME),
+            (ServiceAccount, EXPECTED_SERVICE_ACCOUNT_NAME),
+            (Role, EXPECTED_ROLE_NAME),
+            (RoleBinding, EXPECTED_ROLEBINDING_NAME),
+            (POD_DEFAULT, EXPECTED_NOTEBOOK_PODDEFAULT_NAME),
+            (POD_DEFAULT, EXPECTED_PIPELINE_PODDEFAULT_NAME),
+        ]:
+            with attempt:
+                try:
+                    res = lightkube_client.get(
+                        resource_type,
+                        name=resource_name,
+                        namespace=kubeflow_enabled_namespace,
+                    )
+                    raise AssertionError(
+                        f"Expected {resource_type} {resource_name} to be deleted, but it still exists."
+                    )
+                except ApiError:
+                    pass  # this is exactly what's expected
+
+    logger.info("Integrating kubeflow integrator and spark integration hub again...")
+    juju.integrate(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
+    juju.wait(
+        lambda status: jubilant.all_active(
+            status,
+            SPARK_INTEGRATION_HUB,
+            RESOURCE_DISPATCHER,
+            ADMISSION_WEBHOOK,
+            METACONTROLLER_CHARM,
+            KUBEFLOW_INTEGRATOR,
+        )
+        and jubilant.all_agents_idle(status),
+        delay=5,
+    )
+
+    for attempt in Retrying(
+        stop=stop_after_attempt(20),
+        wait=wait_fixed(10),
+    ):
+        for resource_type, resource_name in [
+            (Secret, EXPECTED_SECRET_NAME),
+            (ServiceAccount, EXPECTED_SERVICE_ACCOUNT_NAME),
+            (Role, EXPECTED_ROLE_NAME),
+            (RoleBinding, EXPECTED_ROLEBINDING_NAME),
+            (POD_DEFAULT, EXPECTED_NOTEBOOK_PODDEFAULT_NAME),
+            (POD_DEFAULT, EXPECTED_PIPELINE_PODDEFAULT_NAME),
+        ]:
+            with attempt:
+                res = lightkube_client.get(
+                    resource_type,
+                    name=resource_name,
+                    namespace=kubeflow_enabled_namespace,
+                )
+                assert res is not None
+
+
+@pytest.mark.parametrize(
+    "relation_name,resource_class,resource_names",
+    [
+        ("secrets", Secret, [EXPECTED_SECRET_NAME]),
+        ("service-accounts", ServiceAccount, [EXPECTED_SERVICE_ACCOUNT_NAME]),
+        ("roles", Role, [EXPECTED_ROLE_NAME]),
+        ("role-bindings", RoleBinding, [EXPECTED_ROLEBINDING_NAME]),
+        (
+            "pod-defaults",
+            POD_DEFAULT,
+            [EXPECTED_NOTEBOOK_PODDEFAULT_NAME, EXPECTED_PIPELINE_PODDEFAULT_NAME],
+        ),
+    ],
+)
+def test_remove_resource_dispatcher_relations(
+    juju: jubilant.Juju,
+    lightkube_client: lightkube.Client,
+    kubeflow_enabled_namespace: str,
+    relation_name: str,
+    resource_class: Type,
+    resource_names: list[str],
+):
+    """Remove resource-dispatcher relations one by one and see that the resources are deleted."""
+    logger.info(
+        f"Removing relation between kubeflowintegrator:{relation_name} <> resource-dispatcher:{relation_name}..."
+    )
+    juju.remove_relation(
+        f"{KUBEFLOW_INTEGRATOR}:{relation_name}",
+        f"{RESOURCE_DISPATCHER}:{relation_name}",
+    )
+    juju.wait(
+        lambda status: jubilant.all_active(
+            status,
+            SPARK_INTEGRATION_HUB,
+            RESOURCE_DISPATCHER,
+            ADMISSION_WEBHOOK,
+            METACONTROLLER_CHARM,
+            KUBEFLOW_INTEGRATOR,
+        )
+        and jubilant.all_agents_idle(status),
+        delay=3,
+    )
+    for attempt in Retrying(
+        stop=stop_after_attempt(20),
+        wait=wait_fixed(10),
+    ):
+        with attempt:
+            try:
+                _ = [
+                    lightkube_client.get(
+                        resource_class,
+                        name=resource_name,
+                        namespace=kubeflow_enabled_namespace,
+                    )
+                    for resource_name in resource_names
+                ]
+                raise AssertionError(
+                    f"Expected {resource_class} resources to be deleted, but it still exists."
+                )
+            except ApiError:
+                pass  # this is exactly what's expected
+
+
+def test_block_change_in_config_while_relation_is_active(juju: jubilant.Juju):
+    """Test that a change in spark-service-account config option results in blocked state requiring relation recreation."""
+    logger.info("Changing spark-service-account config option...")
+    juju.config(KUBEFLOW_INTEGRATOR, {"spark-service-account": "new-spark-sa"})
+    status = juju.wait(
+        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
+        delay=5,
+    )
+    assert (
+        "Change in 'spark-service-account' requires relation 'spark' to be recreated"
+        in status.apps[KUBEFLOW_INTEGRATOR].app_status.message
+    )

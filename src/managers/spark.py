@@ -12,7 +12,7 @@ from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtoc
 from data_platform_helpers.advanced_statuses.types import Scope
 from pydantic import ValidationError
 
-from constants import SPARK
+from constants import SPARK, SPARK_RELATION_NAME
 from core.config import SparkConfig
 from core.state import GlobalState
 from core.statuses import CharmStatuses, ConfigStatuses
@@ -89,6 +89,16 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             # Block the charm since we need the integration with spark
             status_list.append(CharmStatuses.missing_integration_with_spark())
 
+        if (
+            self.is_spark_related
+            and spark_config
+            and self.service_account_active != spark_config.spark_service_account
+        ):
+            status_list.append(
+                ConfigStatuses.config_change_requires_relation_recreation(
+                    config_option="spark-service-account", relation_name=SPARK_RELATION_NAME
+                )
+            )
         return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
     @property
@@ -104,7 +114,16 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             if len(self.spark_requirer.relations)
             else None
         ):
-            return self.spark_requirer.fetch_relation_field(relation.id, "service-account")
+            sa_with_namespace = self.spark_requirer.fetch_relation_field(
+                relation.id, "service-account"
+            )
+            if not sa_with_namespace:
+                return None
+            parts = sa_with_namespace.split(":")
+            if len(parts) != 2:
+                return None
+            _, service_account = parts
+            return service_account
         return None
 
     @property
