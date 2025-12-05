@@ -86,13 +86,11 @@ def test_integrate_kubeflow_with_resource_dispatcher(
             secrets_rel_data = list(
                 get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "secrets").items()
             )[0]
-            assert secrets_rel_data[1] == {}
-            assert "kubernetes_manifests" not in secrets_rel_data[1]
+            assert secrets_rel_data[1] == {"kubernetes_manifests": "[]"}
             poddefaults_rel_data = list(
                 get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "pod-defaults").items()
             )[0]
-            assert poddefaults_rel_data[1] == {}
-            assert "kubernetes_manifests" not in poddefaults_rel_data[1]
+            assert poddefaults_rel_data[1] == {"kubernetes_manifests": "[]"}
 
 
 def test_manifests_generation_with_opensearch(juju: jubilant.Juju, juju_vm: jubilant.Juju):
