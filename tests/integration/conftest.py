@@ -16,9 +16,6 @@ logging.getLogger("jubilant.wait").setLevel(logging.WARNING)
 
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
-MICROK8S_CLOUD = "microk8s-cloud"
-CONCIERGE_MICROK8S_CONTROLLER = "concierge-microk8s"
-MICROK8S_MODEL_NAME = "microk8s-model"
 
 
 def pytest_addoption(parser):
