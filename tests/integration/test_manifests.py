@@ -2,8 +2,8 @@
 # Copyright 2025 Ubuntu
 # See LICENSE file for licensing details.
 
-import json
 import base64
+import json
 import logging
 from pathlib import Path
 
