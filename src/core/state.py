@@ -26,6 +26,7 @@ from core.config import (
     OpenSearchConfig,
     PostgresqlConfig,
     ProfileConfig,
+    SparkConfig,
 )
 from utils.logging import WithLogging
 
@@ -89,6 +90,14 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         """Return current configuration kafka."""
         try:
             return KafkaConfig(**self.config)
+        except Exception:
+            return None
+
+    @property
+    def spark_config(self) -> SparkConfig | None:
+        """Return current configuration related to Spark."""
+        try:
+            return SparkConfig(**self.config)
         except Exception:
             return None
 

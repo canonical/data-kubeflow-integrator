@@ -6,6 +6,7 @@
 
 import os
 
+import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import (
     KubernetesManifest,  # type: ignore[import-untyped]
 )
@@ -20,8 +21,19 @@ from constants import (
     K8S_DATABASE_TLS_CERT_PATH,
     K8S_DATABASE_TLS_SECRET_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+    ROLEBINDINGS_DISPATCHER_RELATION_NAME,
+    ROLES_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
+    SPARK,
+    SPARK_BLOCK_MANAGER_PORT,
+    SPARK_DRIVER_PORT,
+    SPARK_NOTEBOOK_PODDEFAULT_DESC,
+    SPARK_NOTEBOOK_PODDEFAULT_NAME,
+    SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL,
+    SPARK_PIPELINE_PODDEFAULT_DESC,
+    SPARK_PIPELINE_PODDEFAULT_NAME,
+    SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
 )
 from core.config import ProfileConfig
 from core.state import GlobalState
@@ -112,38 +124,146 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
             poddefault_manifests.append(poddefault)
         return ReconciledManifests(secrets=secrets_manifests, poddefaults=poddefault_manifests)
 
+    def _patch_rolebinding_subject_namespace(self, rolebinding: dict) -> dict:
+        """Patch the namespace of the subject in the rolebinding."""
+        if len(rolebinding.get("subjects", [])) == 0:
+            return rolebinding
+
+        for subject in rolebinding["subjects"]:
+            if "namespace" not in subject:
+                continue
+            subject["namespace"] = "{{ NAMESPACE }}"
+
+        return rolebinding
+
+    def reconcile_spark_manifests(
+        self, raw_manifests: str, service_account: str
+    ) -> ReconciledManifests:
+        """Generate manifests for Spark interface."""
+        if not self.state.profile_config:
+            self.logger.warning("No specified profile, skipping manifests generation")
+            return ReconciledManifests()
+
+        manifest_yaml = list(yaml.safe_load_all(raw_manifests))
+
+        secrets_manifests: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "Secret"
+            ]
+            if self.is_k8s_secrets_manifests_related
+            else []
+        )
+
+        service_accounts_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "ServiceAccount"
+            ]
+            if self.is_k8s_service_accounts_manifests_related
+            else []
+        )
+
+        roles_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "Role"
+            ]
+            if self.is_k8s_roles_manifests_related
+            else []
+        )
+
+        rolebindings_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(
+                    manifest_content=yaml.dump(self._patch_rolebinding_subject_namespace(res))
+                )
+                for res in manifest_yaml
+                if res["kind"] == "RoleBinding"
+            ]
+            if self.is_k8s_rolebindings_manifests_related
+            else []
+        )
+
+        spark_pipeline_poddefault = generate_poddefault_manifest(
+            self.poddefault_k8s_template,
+            self.state.profile_config.profile,
+            creds={"SPARK_SERVICE_ACCOUNT": service_account},
+            database_name=SPARK,
+            poddefault_name=SPARK_PIPELINE_PODDEFAULT_NAME,
+            poddefault_description=SPARK_PIPELINE_PODDEFAULT_DESC,
+            fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+            selector_name=SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
+        )
+        spark_notebook_poddefault = generate_poddefault_manifest(
+            self.poddefault_k8s_template,
+            self.state.profile_config.profile,
+            creds={"SPARK_SERVICE_ACCOUNT": service_account},
+            database_name=SPARK,
+            poddefault_name=SPARK_NOTEBOOK_PODDEFAULT_NAME,
+            poddefault_description=SPARK_NOTEBOOK_PODDEFAULT_DESC,
+            args=[
+                "--namespace",
+                "$SPARK_NAMESPACE",
+                "--username",
+                "$SPARK_SERVICE_ACCOUNT",
+                "--conf",
+                f"spark.driver.port={SPARK_DRIVER_PORT}",
+                "--conf",
+                f"spark.blockManager.port={SPARK_BLOCK_MANAGER_PORT}",
+            ],
+            annotations={
+                "traffic.sidecar.istio.io/excludeInboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+                "traffic.sidecar.istio.io/excludeOutboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+            },
+            fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+            selector_name=SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL,
+        )
+        poddefaults_manifest = (
+            [spark_pipeline_poddefault, spark_notebook_poddefault]
+            if self.is_k8s_poddefaults_manifests_related
+            else []
+        )
+
+        return ReconciledManifests(
+            secrets=secrets_manifests,
+            poddefaults=poddefaults_manifest,
+            serviceaccounts=service_accounts_manifest,
+            roles=roles_manifest,
+            role_bindings=rolebindings_manifest,
+        )
+
     def send_manifests(self, reconciled_manifests: ReconciledManifests):
         """Send k8s manifests to the manifests provider."""
-        if len(reconciled_manifests.secrets):
-            self.manifests_secret_wrapper.send_data(reconciled_manifests.secrets)
-        if len(reconciled_manifests.poddefaults):
-            self.manifests_poddefault_wrapper.send_data(reconciled_manifests.poddefaults)
-        if len(reconciled_manifests.serviceaccounts):
-            self.manifests_service_account_wrapper.send_data(reconciled_manifests.serviceaccounts)
+        self.manifests_secret_wrapper.send_data(reconciled_manifests.secrets)
+        self.manifests_poddefault_wrapper.send_data(reconciled_manifests.poddefaults)
+        self.manifests_service_account_wrapper.send_data(reconciled_manifests.serviceaccounts)
+        self.manifests_roles_wrapper.send_data(reconciled_manifests.roles)
+        self.manifests_rolebindings_wrapper.send_data(reconciled_manifests.role_bindings)
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
         status_list = []
-        if scope == "app":
-            try:
-                ProfileConfig(**self.state.charm.config)
-            except ValidationError as err:
-                self.logger.error(f"A validation error occurred {err}")
-                missing = [
-                    str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
-                ]
-                invalid = [
-                    str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
-                ]
+        try:
+            ProfileConfig(**self.state.charm.config)
+        except ValidationError as err:
+            self.logger.error(f"A validation error occurred {err}")
+            missing = [
+                str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
+            ]
+            invalid = [
+                str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
+            ]
 
-                if missing:
-                    status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
-                if invalid:
-                    status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
+            if missing:
+                status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
+            if invalid:
+                status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
 
-            return status_list or [CharmStatuses.ACTIVE_IDLE.value]
-        else:
-            return [CharmStatuses.ACTIVE_IDLE.value]
+        return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
     @property
     def manifests_secret_wrapper(self):
@@ -157,8 +277,18 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
     @property
     def manifests_service_account_wrapper(self):
-        """Retuyrn the Manifests Service Account Wrapper."""
+        """Return the Manifests Service Account Wrapper."""
         return self.state.charm.general_events.service_accounts_manifests_wrapper
+
+    @property
+    def manifests_roles_wrapper(self):
+        """Return the Manifests Roles Wrapper."""
+        return self.state.charm.general_events.roles_manifests_wrapper
+
+    @property
+    def manifests_rolebindings_wrapper(self):
+        """Return the Manifests Role Bindings Wrapper."""
+        return self.state.charm.general_events.role_bindings_manifests_wrapper
 
     @property
     def is_manifests_provider_related(self):
@@ -168,6 +298,8 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 self.is_k8s_poddefaults_manifests_related,
                 self.is_k8s_secrets_manifests_related,
                 self.is_k8s_service_accounts_manifests_related,
+                self.is_k8s_roles_manifests_related,
+                self.is_k8s_rolebindings_manifests_related,
             ]
         )
 
@@ -178,15 +310,25 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
 
     @property
     def is_k8s_poddefaults_manifests_related(self) -> bool:
-        """Is the charm related to a secrets manifests relation."""
+        """Is the charm related to a poddefaults manifests relation."""
         return bool(self.state.charm.model.relations.get(POD_DEFAULTS_DISPATCHER_RELATION_NAME))
 
     @property
     def is_k8s_service_accounts_manifests_related(self) -> bool:
-        """Is the charm related to a secrets manifests relation."""
+        """Is the charm related to a serviceaccounts manifests relation."""
         return bool(
             self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME)
         )
+
+    @property
+    def is_k8s_roles_manifests_related(self) -> bool:
+        """Is the charm related to a roles manifests relation."""
+        return bool(self.state.charm.model.relations.get(ROLES_DISPATCHER_RELATION_NAME))
+
+    @property
+    def is_k8s_rolebindings_manifests_related(self) -> bool:
+        """Is the charm related to a rolebindings manifests relation."""
+        return bool(self.state.charm.model.relations.get(ROLEBINDINGS_DISPATCHER_RELATION_NAME))
 
     @property
     def secret_k8s_template(self) -> Template:

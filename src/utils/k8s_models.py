@@ -29,17 +29,25 @@ class EnvVarFromSecret(BaseModel):
     optional: bool = False
 
 
+class EnvVarFromField(BaseModel):
+    """Structured model for environment variable from metadata in poddefault."""
+
+    field_path: str
+    optional: bool = False
+
+
 class PodDefaultEnvVar(BaseModel):
     """Structured model for environment variable definitions in poddefault."""
 
     name: str
     value: str | None = None
     secret: EnvVarFromSecret | None = None
+    fieldref: EnvVarFromField | None = None
 
     @model_validator(mode="after")
     def check_on_of(self):
         """Validate that either the `value` field or `secret` field is specified."""
-        if not (self.value or self.secret):
+        if not (self.value or self.secret or self.fieldref):
             raise ValueError("Either 'value' or 'secret' must be provided")
         return self
 
@@ -52,6 +60,13 @@ class PodDefaultSecretVolume(BaseModel):
     mount_path: str
 
 
+class PodDefaultAnnotation(BaseModel):
+    """Structured model for annotations in a pod-default."""
+
+    key: str
+    value: str
+
+
 class K8sPodDefaultManifestInfo(BaseModel):
     """Structured model used to group info regarding a pod default, to be used to generate k8s poddefault manifest."""
 
@@ -61,6 +76,8 @@ class K8sPodDefaultManifestInfo(BaseModel):
     selector_name: str
     env_vars: list[PodDefaultEnvVar]
     secret_volumes: list[PodDefaultSecretVolume] | None = None
+    annotations: list[PodDefaultAnnotation] | None = None
+    args: list[str] | None = None
 
 
 @dataclass
@@ -70,6 +87,8 @@ class ReconciledManifests:
     secrets: list[KubernetesManifest] = field(default_factory=list)
     poddefaults: list[KubernetesManifest] = field(default_factory=list)
     serviceaccounts: list[KubernetesManifest] = field(default_factory=list)
+    roles: list[KubernetesManifest] = field(default_factory=list)
+    role_bindings: list[KubernetesManifest] = field(default_factory=list)
 
     def __add__(self, other: "ReconciledManifests") -> "ReconciledManifests":
         """Implements the add interface."""
@@ -80,6 +99,8 @@ class ReconciledManifests:
             secrets=self.secrets + other.secrets,
             poddefaults=self.poddefaults + other.poddefaults,
             serviceaccounts=self.serviceaccounts + other.serviceaccounts,
+            roles=self.roles + other.roles,
+            role_bindings=self.role_bindings + other.role_bindings,
         )
 
     def __iadd__(self, other: "ReconciledManifests") -> "ReconciledManifests":
@@ -90,4 +111,6 @@ class ReconciledManifests:
         self.secrets += other.secrets
         self.poddefaults += other.poddefaults
         self.serviceaccounts += other.serviceaccounts
+        self.roles += other.roles
+        self.role_bindings += other.role_bindings
         return self

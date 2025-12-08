@@ -22,10 +22,13 @@ from charms.data_platform_libs.v0.data_interfaces import (
 from charms.resource_dispatcher.v0.kubernetes_manifests import (
     KubernetesManifestRequirerWrapper,  # type: ignore
 )
-from ops import (
-    Object,
-    RelationBrokenEvent,
+from charms.spark_integration_hub_k8s.v0.spark_service_account import (
+    ServiceAccountGoneEvent,
+    ServiceAccountGrantedEvent,
+    ServiceAccountPropertyChangedEvent,
+    SparkServiceAccountRequirer,
 )
+from ops import Object, RelationBrokenEvent
 from ops.charm import ConfigChangedEvent
 
 from constants import (
@@ -35,8 +38,11 @@ from constants import (
     OPENSEARCH_RELATION_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     POSTGRESQL_RLEATION_NAME,
+    ROLEBINDINGS_DISPATCHER_RELATION_NAME,
+    ROLES_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
+    SPARK_RELATION_NAME,
 )
 from core.state import GlobalState
 from managers.manifests import ReconciledManifests
@@ -90,6 +96,15 @@ class GeneralEventsHandler(Object, WithLogging):
             database_name=getattr(self.state.mysql_config, "database_name", ""),
             extra_user_roles=getattr(self.state.mysql_config, "extra_user_roles", ""),
         )
+        profile = getattr(self.state.profile_config, "profile", "")
+        namespace = profile if profile != "*" else self.charm.model.name
+        username = getattr(self.state.spark_config, "spark_service_account", "")
+        self.spark = SparkServiceAccountRequirer(
+            self.charm,
+            relation_name=SPARK_RELATION_NAME,
+            service_account=f"{namespace}:{username}",
+            skip_creation=True,
+        )
         for database in [self.postgresql, self.mysql, self.mongodb]:
             self.framework.observe(database.on.database_created, self._on_database_created)
             self.framework.observe(
@@ -110,6 +125,12 @@ class GeneralEventsHandler(Object, WithLogging):
         self.framework.observe(
             self.charm.on[KAFKA_RELATION_NAME].relation_broken, self._on_relation_broken
         )
+        # spark
+        self.framework.observe(
+            self.spark.on.account_granted, self._on_spark_service_account_granted
+        )
+        self.framework.observe(self.spark.on.account_gone, self._on_spark_service_account_gone)
+        self.framework.observe(self.spark.on.properties_changed, self._on_spark_properties_changed)
 
         # resource-dispatcher manifests
         self.secrets_manifests_wrapper = KubernetesManifestRequirerWrapper(
@@ -118,9 +139,14 @@ class GeneralEventsHandler(Object, WithLogging):
         self.service_accounts_manifests_wrapper = KubernetesManifestRequirerWrapper(
             charm=self.charm, relation_name=SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME
         )
-
         self.pod_defaults_manifests_wrapper = KubernetesManifestRequirerWrapper(
             charm=self.charm, relation_name=POD_DEFAULTS_DISPATCHER_RELATION_NAME
+        )
+        self.roles_manifests_wrapper = KubernetesManifestRequirerWrapper(
+            charm=self.charm, relation_name=ROLES_DISPATCHER_RELATION_NAME
+        )
+        self.role_bindings_manifests_wrapper = KubernetesManifestRequirerWrapper(
+            charm=self.charm, relation_name=ROLEBINDINGS_DISPATCHER_RELATION_NAME
         )
 
         # resource-dispatcher
@@ -128,6 +154,8 @@ class GeneralEventsHandler(Object, WithLogging):
             SECRETS_DISPATCHER_RELATION_NAME,
             SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
             POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+            ROLES_DISPATCHER_RELATION_NAME,
+            ROLEBINDINGS_DISPATCHER_RELATION_NAME,
         ]:
             self.framework.observe(
                 self.charm.on[relation_name].relation_created,
@@ -152,6 +180,7 @@ class GeneralEventsHandler(Object, WithLogging):
             mysql_manifests = self.charm.mysql_manager.generate_manifests()
             mongodb_manifests = self.charm.mongodb_manager.generate_manifests()
             kafka_manifests = self.charm.kafka_manager.generate_manifests()
+            spark_manifests = self.charm.spark_manager.generate_manifests()
             reconciled_manifests = (
                 reconciled_manifests
                 + opensearch_manifests
@@ -159,6 +188,7 @@ class GeneralEventsHandler(Object, WithLogging):
                 + mysql_manifests
                 + mongodb_manifests
                 + kafka_manifests
+                + spark_manifests
             )
 
         # TODO: Reconcile other Data Platform databases
@@ -195,6 +225,23 @@ class GeneralEventsHandler(Object, WithLogging):
         self.logger.debug(f"Entity credentials are received: {event.entity_name}")
         self._on_config_changed(event)
 
+    def _on_spark_service_account_granted(self, event: ServiceAccountGrantedEvent) -> None:
+        """Event triggered when a service account has been created and granted for this application."""
+        self.logger.debug(f"Spark service account is granted: {event.service_account}")
+        self._on_config_changed(event)
+
+    def _on_spark_service_account_gone(self, event: ServiceAccountGoneEvent) -> None:
+        """Event triggered when a service account has been released."""
+        self.logger.debug("Spark service account is gone.")
+        self._on_config_changed(event)
+
+    def _on_spark_properties_changed(self, event: ServiceAccountPropertyChangedEvent) -> None:
+        """Event triggered when the Spark properties for a service account has been changed."""
+        self.logger.debug(
+            f"Spark properties for the service account is changed: {event.service_account}"
+        )
+        self._on_config_changed(event)
+
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Handle relation broken event."""
         pass
@@ -222,8 +269,12 @@ class GeneralEventsHandler(Object, WithLogging):
             # route the config change to mongodb manager
             self.charm.mongodb_manager.update_relation_data()
         if self.state.kafka_config and not self.charm.kafka_manager.topic_active:
-            # route the config change to mongodb manager
+            # route the config change to kafka manager
             self.charm.kafka_manager.update_relation_data()
+
+        if self.state.spark_config:
+            # route the config change to spark manager
+            self.charm.spark_manager.update_relation_data()
 
         # reconcile manifests
         self._on_manifests_relation_change(event)

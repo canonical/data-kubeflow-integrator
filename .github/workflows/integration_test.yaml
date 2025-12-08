@@ -113,6 +113,9 @@ jobs:
           sudo sysctl -w vm.swappiness=0
           sudo sysctl -w vm.max_map_count=262144
           sudo sysctl -w net.ipv4.tcp_retries2=5
+      - name: Install spark-client snap for Spark tests
+        run: |
+          sudo snap install spark-client --channel 3.5/edge
       - name: Download packed charm(s)
         timeout-minutes: 5
         uses: actions/download-artifact@v4
