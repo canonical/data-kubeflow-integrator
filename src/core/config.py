@@ -167,9 +167,18 @@ class PostgresqlConfig(BaseConfigModel):
         return data
 
 
-# class SparkConfig(BaseConfigModel):
-# """Model for Spark configuration."""
+class SparkConfig(BaseConfigModel):
+    """Model for Spark configuration."""
 
-# spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
-# alias="spark-service-account"
-# )
+    spark_service_account: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+        alias="spark-service-account"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_value_if_none(cls, data: Any) -> Any:
+        """Remove value of spark_service_account if the value is None to show missing config."""
+        if isinstance(data, dict):
+            if "spark-service-account" in data and data["spark-service-account"] is None:
+                data.pop("spark-service-account")
+        return data

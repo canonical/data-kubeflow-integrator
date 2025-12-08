@@ -49,45 +49,33 @@ class KafkaManager(ManagerStatusProtocol, WithLogging):
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
-        if scope == "app":
-            # Show error status on app only
-            status_list = []
+        # Show error status on app only
+        status_list = []
+        kafka_config = None
 
-            kafka_config = None
+        try:
+            kafka_config = KafkaConfig(**self.state.charm.config)
+        except ValidationError as err:
+            self.logger.warning(str(err))
 
-            try:
-                kafka_config = KafkaConfig(**self.state.charm.config)
-            except ValidationError as err:
-                self.logger.warning(str(err))
+            # If kafka is related
+            if len(self.kafka_requirer.relations) > 0:
+                missing = [
+                    str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
+                ]
+                invalid = [
+                    str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
+                ]
 
-                # If kafka is related
-                if len(self.kafka_requirer.relations) > 0:
-                    missing = [
-                        str(error["loc"][0])
-                        for error in err.errors()
-                        if error["type"] == "missing"
-                    ]
-                    invalid = [
-                        str(error["loc"][0])
-                        for error in err.errors()
-                        if error["type"] != "missing"
-                    ]
+                if missing:
+                    status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
+                if invalid:
+                    status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
+        if kafka_config and not self.is_kafka_related:
+            # Block the charm since we need the integration with kafka
+            status_list.append(CharmStatuses.missing_integration_with_kafka())
 
-                    if missing:
-                        status_list.append(
-                            ConfigStatuses.missing_config_parameters(fields=missing)
-                        )
-                    if invalid:
-                        status_list.append(
-                            ConfigStatuses.invalid_config_parameters(fields=invalid)
-                        )
-            if kafka_config and not self.is_kafka_related:
-                # Block the charm since we need the integration with kafka
-                status_list.append(CharmStatuses.missing_integration_with_kafka())
-
-            return status_list or [CharmStatuses.ACTIVE_IDLE.value]
-        else:
-            return [CharmStatuses.ACTIVE_IDLE.value]
+        return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
     @property
     def kafka_requirer(self) -> KafkaRequires:

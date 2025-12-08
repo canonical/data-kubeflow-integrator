@@ -19,9 +19,11 @@ from constants import (
     K8S_TLS_SECRET_VOLUME,
 )
 from utils.k8s_models import (
+    EnvVarFromField,
     EnvVarFromSecret,
     K8sPodDefaultManifestInfo,
     K8sSecretManifestInfo,
+    PodDefaultAnnotation,
     PodDefaultEnvVar,
     PodDefaultSecretVolume,
 )
@@ -82,9 +84,16 @@ def generate_poddefault_manifest(
     database_name: str,
     from_secret: str | None = None,
     tls_secret: str | None = None,
+    poddefault_name: str | None = None,
+    poddefault_description: str | None = None,
+    annotations: dict[str, str] | None = None,
+    args: list[str] | None = None,
+    fieldrefs: dict[str, str] | None = None,
+    selector_name: str | None = None,
 ):
     """Generate PodDefault manifest for a database."""
     poddefault_secret_volumes: list[PodDefaultSecretVolume] | None = None
+    poddefault_annotations: list[PodDefaultAnnotation] | None = None
     poddefault_env_vars = []
     if tls_secret:
         # TLS should be stored in a mounted volume
@@ -110,13 +119,25 @@ def generate_poddefault_manifest(
         poddefault_env_vars += [
             PodDefaultEnvVar(name=key, value=value) for key, value in creds.items()
         ]
+    if fieldrefs:
+        poddefault_env_vars += [
+            PodDefaultEnvVar(name=key, fieldref=EnvVarFromField(field_path=value))
+            for key, value in fieldrefs.items()
+        ]
+    if annotations:
+        poddefault_annotations = [
+            PodDefaultAnnotation(key=key, value=value) for key, value in annotations.items()
+        ]
+
     k8s_poddefault_info = K8sPodDefaultManifestInfo(
-        name=K8S_DATABASE_PODDEFAULT_NAME[database_name],
+        name=poddefault_name or K8S_DATABASE_PODDEFAULT_NAME[database_name],
         namespace=None if profile == "*" else profile,
-        desc=K8S_DATABASE_PODDEFAULT_DESC[database_name],
-        selector_name=K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL[database_name],
+        desc=poddefault_description or K8S_DATABASE_PODDEFAULT_DESC[database_name],
+        selector_name=selector_name or K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL[database_name],
         env_vars=poddefault_env_vars,
         secret_volumes=poddefault_secret_volumes,
+        annotations=poddefault_annotations,
+        args=args,
     )
 
     rendered = template.render(pod_default=k8s_poddefault_info)

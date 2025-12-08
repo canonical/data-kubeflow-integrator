@@ -9,6 +9,7 @@ MONGODB = "mongodb"
 MYSQL = "mysql"
 OPENSEARCH = "opensearch"
 KAFKA = "kafka"
+SPARK = "spark"
 
 
 OPENSEARCH_RELATION_NAME = "opensearch"
@@ -16,10 +17,14 @@ POSTGRESQL_RLEATION_NAME = "postgresql"
 MYSQL_RELATION_NAME = "mysql"
 MONGODB_RELATION_NAME = "mongodb"
 KAFKA_RELATION_NAME = "kafka"
+SPARK_RELATION_NAME = "spark"
+
 STATUS_PEERS_RELATION_NAME = "status-peers"
 SECRETS_DISPATCHER_RELATION_NAME = "secrets"
 SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME = "service-accounts"
 POD_DEFAULTS_DISPATCHER_RELATION_NAME = "pod-defaults"
+ROLES_DISPATCHER_RELATION_NAME = "roles"
+ROLEBINDINGS_DISPATCHER_RELATION_NAME = "role-bindings"
 PEER_RELATION = "kubeflow-integrator-peers"
 
 K8S_TLS_SECRET_VOLUME = "tls-secret"
@@ -49,6 +54,8 @@ K8S_DATABASE_PODDEFAULT_NAME = {
     OPENSEARCH: "opensearch-pod-default",
     KAFKA: "kafka-pod-default",
 }
+SPARK_PIPELINE_PODDEFAULT_NAME = "pyspark-pipeline"
+SPARK_NOTEBOOK_PODDEFAULT_NAME = "pyspark-notebook"
 
 K8S_DATABASE_PODDEFAULT_DESC = {
     POSTGRESQL: "Postgresql Credentials",
@@ -57,6 +64,8 @@ K8S_DATABASE_PODDEFAULT_DESC = {
     OPENSEARCH: "OpenSearch Credentials",
     KAFKA: "Kafka Credentials",
 }
+SPARK_PIPELINE_PODDEFAULT_DESC = "Configure PySpark for Kubeflow pipelines"
+SPARK_NOTEBOOK_PODDEFAULT_DESC = "Configure PySpark for Kubeflow notebooks"
 
 K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL = {
     POSTGRESQL: "access-postgresql",
@@ -64,7 +73,10 @@ K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL = {
     MYSQL: "access-mysql",
     OPENSEARCH: "access-opensearch",
     KAFKA: "access-kafka",
+    SPARK: "access-spark",
 }
+SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL = "access-spark-notebook"
+SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL = "access-spark-pipeline"
 
 
 K8S_DATABASE_TLS_CERT_PATH = {
@@ -74,3 +86,8 @@ K8S_DATABASE_TLS_CERT_PATH = {
     OPENSEARCH: f"{K8S_TLS_MOUNTPATH}/{OPENSEARCH}_ca.crt",
     KAFKA: f"{K8S_TLS_MOUNTPATH}/{KAFKA}_ca.crt",
 }
+
+
+# Spark related configs
+SPARK_DRIVER_PORT = 37371
+SPARK_BLOCK_MANAGER_PORT = 6060

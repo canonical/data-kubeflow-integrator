@@ -50,8 +50,8 @@ options:
     type: string
     default:
     description: A comma-separated list of values that contains the required extra roles. This can be 'admin'.
-  #spark-service-account:
-    #type: string
-    #default:
-    #description: The service account name to use with Spark jobs.
+  spark-service-account:
+    type: string
+    default:
+    description: The service account name to use with Spark jobs.
 

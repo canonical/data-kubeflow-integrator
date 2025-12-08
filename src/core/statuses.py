@@ -60,6 +60,15 @@ class CharmStatuses(Enum):
             action="Integrate with a Kafka Charm",
         )
 
+    @staticmethod
+    def missing_integration_with_spark() -> StatusObject:
+        """Integration with Spark is required."""
+        return StatusObject(
+            status="blocked",
+            message="Missing relation with: Spark",
+            action="Integrate with Spark Integration Hub charm.",
+        )
+
 
 class ConfigStatuses(Enum):
     """Status objects related to config options."""
@@ -82,4 +91,15 @@ class ConfigStatuses(Enum):
             status="blocked",
             message=f"Invalid config(s): {fields_str}",
             action=f"Fix invalid config(s): {fields_str}",
+        )
+
+    @staticmethod
+    def config_change_requires_relation_recreation(
+        config_option: str, relation_name: str
+    ) -> StatusObject:
+        """Change in config value requires relation recreation."""
+        return StatusObject(
+            status="blocked",
+            message=f"Change in '{config_option}' requires relation '{relation_name}' to be recreated.",
+            action=f"Remove the relation {relation_name} and add it again.",
         )
