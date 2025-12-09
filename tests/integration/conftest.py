@@ -3,7 +3,6 @@
 # See LICENSE file for licensing details.
 import json
 import logging
-import os
 from pathlib import Path
 
 import jubilant
@@ -28,19 +27,9 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture
-def ubuntu_base() -> str | None:
-    """Charm base version to use for testing."""
-    return os.environ.get("CHARM_UBUNTU_BASE", None)
-
-
-@pytest.fixture
-def kubeflow_integrator(ubuntu_base: str | None) -> Path:
+def kubeflow_integrator() -> Path:
     """Path to the packed kf-integrator charm."""
-    # Fetch the packed charm
-    if not ubuntu_base:
-        raise ValueError("`CHARM_UBUNTU_BASE` environment variable not specified.")
-    packed_charm = f"{APP_NAME}_ubuntu@{ubuntu_base}-amd64.charm"
-    if not (path := next(iter(Path.cwd().glob(packed_charm)), None)):
+    if not (path := next(iter(Path.cwd().glob(f"{APP_NAME}*.charm")), None)):
         raise FileNotFoundError("Could not find packed kubeflow-integrator charm.")
 
     return path
