@@ -214,6 +214,10 @@ class KubernetesManifestsManager(ManagerStatusProtocol, WithLogging):
                 f"spark.driver.port={SPARK_DRIVER_PORT}",
                 "--conf",
                 f"spark.blockManager.port={SPARK_BLOCK_MANAGER_PORT}",
+                "--conf",
+                f"spark.kubernetes.executor.annotation.traffic.sidecar.istio.io/excludeInboundPorts={SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+                "--conf",
+                f"spark.kubernetes.executor.annotation.traffic.sidecar.istio.io/excludeOutboundPorts={SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
             ],
             annotations={
                 "traffic.sidecar.istio.io/excludeInboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
