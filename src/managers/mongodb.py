@@ -32,6 +32,15 @@ class MongodbManager(DatabaseManager, ManagerStatusProtocol):
         """Returns mongodb config from the global state."""
         return self.state.mongodb_config
 
+    @property
+    def active_database(self) -> str | None:
+        """Return the created and configured database."""
+        return self.state.active_mongodb_database
+
+    def is_database_related(self) -> bool:
+        """Check if we have a relation with mongodb."""
+        return self.state.is_mongodb_related()
+
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
         status_list = []

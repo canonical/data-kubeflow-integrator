@@ -4,7 +4,7 @@
 
 """Manager for Postgresql related tasks."""
 
-from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires, Scope
+from charms.data_platform_libs.v0.data_interfaces import DatabaseRequirerData, Scope
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from pydantic import ValidationError
@@ -23,14 +23,23 @@ class PostgresqlManager(DatabaseManager, ManagerStatusProtocol):
         super().__init__(state, POSTGRESQL)
 
     @property
-    def database_requirer(self) -> DatabaseRequires:
-        """Return Databaserequires from events handler."""
-        return self.state.charm.general_events.postgresql
+    def database_requirer(self) -> DatabaseRequirerData:
+        """Return PostgreSQL RequirerData component."""
+        return self.state.postgresql_requirer
 
     @property
     def database_config(self) -> PostgresqlConfig | None:
         """Return postgresql config from global state."""
         return self.state.postgresql_config
+
+    @property
+    def active_database(self) -> str | None:
+        """Return the created and configured database."""
+        return self.state.active_postgresql_database
+
+    def is_database_related(self) -> bool:
+        """Check if we have a relation with postgresql."""
+        return self.state.is_postgresql_related()
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""

@@ -6,16 +6,32 @@
 
 from typing import cast
 
+import yaml
+from charms.resource_dispatcher.v0.kubernetes_manifests import (
+    KubernetesManifest,  # type: ignore[import-untyped]
+)
 from charms.spark_integration_hub_k8s.v0.spark_service_account import SparkServiceAccountRequirer
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from data_platform_helpers.advanced_statuses.types import Scope
 from pydantic import ValidationError
 
-from constants import SPARK, SPARK_RELATION_NAME
+from constants import (
+    SPARK,
+    SPARK_BLOCK_MANAGER_PORT,
+    SPARK_DRIVER_PORT,
+    SPARK_NOTEBOOK_PODDEFAULT_DESC,
+    SPARK_NOTEBOOK_PODDEFAULT_NAME,
+    SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL,
+    SPARK_PIPELINE_PODDEFAULT_DESC,
+    SPARK_PIPELINE_PODDEFAULT_NAME,
+    SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
+    SPARK_RELATION_NAME,
+)
 from core.config import SparkConfig
 from core.state import GlobalState
 from core.statuses import CharmStatuses, ConfigStatuses
+from utils.helpers_manifests import generate_poddefault_manifest
 from utils.k8s_models import ReconciledManifests
 from utils.logging import WithLogging
 
@@ -26,41 +42,6 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
     def __init__(self, state: GlobalState):
         self.name = SPARK
         self.state = state
-
-    def update_relation_data(self) -> None:
-        """Update spark relation data with latest config."""
-        spark_config = self.state.spark_config
-        profile_config = self.state.profile_config
-        if spark_config and profile_config:
-            username = spark_config.spark_service_account
-            profile = profile_config.profile
-            namespace = profile if profile != "*" else self.state.charm.model.name
-            relation_data = {
-                "service-account": f"{namespace}:{username}",
-                "skip-creation": "true",
-            }
-            for rel in self.spark_requirer.relations:
-                self.spark_requirer.update_relation_data(rel.id, relation_data)
-
-    def generate_manifests(self) -> ReconciledManifests:
-        """Generate kubernetes manifests for the current spark relation."""
-        if self.is_spark_related and self.service_account_active:
-            # Fetch manifest from the relation
-            relation = self.spark_requirer.relations[0]
-            raw_manifest = list(self.spark_requirer.fetch_relation_data().values())[0][
-                "resource-manifest"
-            ]
-            namespace, service_account = cast(
-                str,
-                self.spark_requirer.fetch_relation_field(
-                    relation_id=relation.id, field="service-account"
-                ),
-            ).split(":")
-
-            return self.state.charm.manifests_manager.reconcile_spark_manifests(
-                raw_manifest, service_account
-            )
-        return ReconciledManifests()
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
@@ -73,7 +54,7 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             self.logger.warning(str(err))
 
             # If Spark is related
-            if len(self.spark_requirer.relations) > 0:
+            if len(self.state.spark_requirer.relations) > 0:
                 missing = [
                     str(error["loc"][0]) for error in err.errors() if error["type"] == "missing"
                 ]
@@ -85,14 +66,15 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
                     status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
                 if invalid:
                     status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
-        if spark_config and not self.is_spark_related:
+
+        if spark_config and not self.state.is_spark_related():
             # Block the charm since we need the integration with spark
             status_list.append(CharmStatuses.missing_integration_with_spark())
 
         if (
-            self.is_spark_related
+            self.state.is_spark_related()
             and spark_config
-            and self.service_account_active != spark_config.spark_service_account
+            and self.state.active_spark_service_account != spark_config.spark_service_account
         ):
             status_list.append(
                 ConfigStatuses.config_change_requires_relation_recreation(
@@ -101,41 +83,131 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             )
         return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
-    @property
-    def spark_requirer(self) -> SparkServiceAccountRequirer:
-        """Return the SparkServiceAccountRequirer instance from event handlers."""
-        return self.state.charm.general_events.spark
+    def _patch_rolebinding_subject_namespace(self, rolebinding: dict) -> dict:
+        """Patch the namespace of the subject in the rolebinding."""
+        if len(rolebinding.get("subjects", [])) == 0:
+            return rolebinding
 
-    @property
-    def service_account_active(self) -> str | None:
-        """Return the service account that was created and configured."""
-        if (
-            relation := self.spark_requirer.relations[0]
-            if len(self.spark_requirer.relations)
-            else None
-        ):
-            sa_with_namespace = self.spark_requirer.fetch_relation_field(
-                relation.id, "service-account"
-            )
-            if not sa_with_namespace:
-                return None
-            parts = sa_with_namespace.split(":")
-            if len(parts) != 2:
-                return None
-            _, service_account = parts
-            return service_account
-        return None
+        for subject in rolebinding["subjects"]:
+            if "namespace" not in subject:
+                continue
+            subject["namespace"] = "{{ NAMESPACE }}"
 
-    @property
-    def is_spark_related(self) -> bool:
-        """Check if we have a relation with Kafka."""
-        for relation in self.spark_requirer.relations:
-            data = self.spark_requirer.fetch_relation_data(
-                [relation.id], ["service-account", "resource-manifest", "spark-properties"]
-            ).get(relation.id, {})
-            if all(
-                data.get(key)
-                for key in ("service-account", "resource-manifest", "spark-properties")
-            ):
-                return True
-        return False
+        return rolebinding
+
+    def generate_manifests(self) -> ReconciledManifests:
+        """Generate kubernetes manifests for the current spark relation."""
+        if not (self.state.is_spark_related() and self.state.service_account_active):
+            return ReconciledManifests()
+
+        # Fetch manifest from the relation
+        relation = self.state.spark_requirer.relations[0]
+        raw_manifests = list(self.state.spark_requirer.fetch_relation_data().values())[0][
+            "resource-manifest"
+        ]
+        _, service_account = cast(
+            str,
+            self.state.spark_requirer.fetch_relation_field(
+                relation_id=relation.id, field="service-account"
+            ),
+        ).split(":")
+
+        if not self.state.profile_config:
+            self.logger.warning("No specified profile, skipping manifests generation")
+            return ReconciledManifests()
+
+        manifest_yaml = list(yaml.safe_load_all(raw_manifests))
+
+        secrets_manifests: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "Secret"
+            ]
+            if self.is_k8s_secrets_manifests_related
+            else []
+        )
+
+        service_accounts_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "ServiceAccount"
+            ]
+            if self.is_k8s_service_accounts_manifests_related
+            else []
+        )
+
+        roles_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(manifest_content=yaml.dump(res))
+                for res in manifest_yaml
+                if res["kind"] == "Role"
+            ]
+            if self.is_k8s_roles_manifests_related
+            else []
+        )
+
+        rolebindings_manifest: list[KubernetesManifest] = (
+            [
+                KubernetesManifest(
+                    manifest_content=yaml.dump(self._patch_rolebinding_subject_namespace(res))
+                )
+                for res in manifest_yaml
+                if res["kind"] == "RoleBinding"
+            ]
+            if self.is_k8s_rolebindings_manifests_related
+            else []
+        )
+
+        spark_pipeline_poddefault = generate_poddefault_manifest(
+            self.poddefault_k8s_template,
+            self.state.profile_config.profile,
+            creds={"SPARK_SERVICE_ACCOUNT": service_account},
+            database_name=SPARK,
+            poddefault_name=SPARK_PIPELINE_PODDEFAULT_NAME,
+            poddefault_description=SPARK_PIPELINE_PODDEFAULT_DESC,
+            fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+            selector_name=SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
+        )
+        spark_notebook_poddefault = generate_poddefault_manifest(
+            self.poddefault_k8s_template,
+            self.state.profile_config.profile,
+            creds={"SPARK_SERVICE_ACCOUNT": service_account},
+            database_name=SPARK,
+            poddefault_name=SPARK_NOTEBOOK_PODDEFAULT_NAME,
+            poddefault_description=SPARK_NOTEBOOK_PODDEFAULT_DESC,
+            args=[
+                "--namespace",
+                "$SPARK_NAMESPACE",
+                "--username",
+                "$SPARK_SERVICE_ACCOUNT",
+                "--conf",
+                f"spark.driver.port={SPARK_DRIVER_PORT}",
+                "--conf",
+                f"spark.blockManager.port={SPARK_BLOCK_MANAGER_PORT}",
+                "--conf",
+                f"spark.kubernetes.executor.annotation.traffic.sidecar.istio.io/excludeInboundPorts={SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+                "--conf",
+                f"spark.kubernetes.executor.annotation.traffic.sidecar.istio.io/excludeOutboundPorts={SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+            ],
+            annotations={
+                "traffic.sidecar.istio.io/excludeInboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+                "traffic.sidecar.istio.io/excludeOutboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+            },
+            fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
+            selector_name=SPARK_NOTEBOOK_PODDEFAULT_SELECTOR_LABEL,
+        )
+        poddefaults_manifest = (
+            [spark_pipeline_poddefault, spark_notebook_poddefault]
+            if self.is_k8s_poddefaults_manifests_related
+            else []
+        )
+
+        return ReconciledManifests(
+            secrets=secrets_manifests,
+            poddefaults=poddefaults_manifest,
+            serviceaccounts=service_accounts_manifest,
+            roles=roles_manifest,
+            role_bindings=rolebindings_manifest,
+        )
