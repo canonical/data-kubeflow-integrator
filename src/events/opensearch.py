@@ -68,5 +68,5 @@ class OpenSearchEventsHandler(Object, WithLogging):
                 "index": opensearch_config.index_name if opensearch_config else "",
                 "extra-user-roles": opensearch_config.extra_user_roles or "",
             }
-            for rel in self.opensearch.relations:
+            for rel in self.state.opensearch_requirer.relations:
                 self.opensearch.update_relation_data(rel.id, relation_data)

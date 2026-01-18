@@ -66,5 +66,5 @@ class MySQLEventsHandler(Object, WithLogging):
                 else "",
                 "extra-user-roles": self.state.mysql_config.extra_user_roles or "",
             }
-            for rel in self.mysql.relations:
+            for rel in self.state.mysql_requirer.relations:
                 self.mysql.update_relation_data(rel.id, relation_data)

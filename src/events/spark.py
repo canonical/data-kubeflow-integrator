@@ -16,9 +16,6 @@ from charms.spark_integration_hub_k8s.v0.spark_service_account import (
 )
 from ops import Object
 
-from constants import (
-    SPARK_RELATION_NAME,
-)
 from core.state import GlobalState
 from utils.logging import WithLogging
 
@@ -74,4 +71,4 @@ class SparkEventsHandler(Object, WithLogging):
                 "skip-creation": "true",
             }
             for rel in self.state.spark_requirer.relations:
-                self.spark.update_relation_data(rel.id, relation_data)
+                self.state.spark_requirer.update_relation_data(rel.id, relation_data)

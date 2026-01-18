@@ -14,15 +14,14 @@ from constants import KAFKA
 from core.config import KafkaConfig
 from core.state import GlobalState
 from core.statuses import CharmStatuses, ConfigStatuses
-from utils.logging import WithLogging
+from managers.database import DatabaseManager
 
 
-class KafkaManager(ManagerStatusProtocol, WithLogging):
+class KafkaManager(DatabaseManager, ManagerStatusProtocol):
     """Manager for Kafka relation."""
 
     def __init__(self, state: GlobalState):
-        self.name = KAFKA
-        self.state = state
+        super().__init__(state, KAFKA)
 
     @property
     def database_requirer(self) -> KafkaRequirerData:

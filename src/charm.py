@@ -19,13 +19,12 @@ from events.opensearch import OpenSearchEventsHandler
 from events.postgres import PostgresEventsHandler
 from events.spark import SparkEventsHandler
 from managers.kafka import KafkaManager
-from managers.manifests import KubernetesManifestsManager
 from managers.mongodb import MongodbManager
 from managers.mysql import MysqlManager
 from managers.opensearch import OpenSearchManager
 from managers.postgresql import PostgresqlManager
+from managers.profile import KubeflowProfileManager
 from managers.spark import SparkManager
-from managers.database import DatabaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +45,11 @@ class KubeflowIntegratorCharm(ops.CharmBase):
         self.postgresql_manager = PostgresqlManager(self.state)
         self.mongodb_manager = MongodbManager(self.state)
         self.spark_manager = SparkManager(self.state)
-        self.manifests_manager = KubernetesManifestsManager(self.state)
+        self.profile_manager = KubeflowProfileManager(self.state)
 
         self.status = StatusHandler(  # priority order
             self,
-            self.manifests_manager,
+            self.profile_manager,
             self.kafka_manager,
             self.opensearch_manager,
             self.mysql_manager,

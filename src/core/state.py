@@ -7,19 +7,17 @@
 
 from typing import TYPE_CHECKING
 
-from jinja2 import Template
-
 from charms.data_platform_libs.v0.data_interfaces import (
+    DatabaseRequirerData,
     DataPeerData,
     DataPeerUnitData,
-    OpenSearchRequiresData,
-    DatabaseRequirerData,
     KafkaRequirerData,
+    OpenSearchRequiresData,
 )
+from charms.data_platform_libs.v0.data_models import ValidationError
 from charms.spark_integration_hub_k8s.v0.spark_service_account import (
     SparkServiceAccountRequirerData,
 )
-from charms.data_platform_libs.v0.data_models import ValidationError
 from data_platform_helpers.advanced_statuses.protocol import StatusesState, StatusesStateProtocol
 from ops import Object, Relation
 
@@ -29,16 +27,15 @@ from constants import (
     MYSQL_RELATION_NAME,
     OPENSEARCH_RELATION_NAME,
     PEER_RELATION,
-    POSTGRESQL_RLEATION_NAME,
-    SPARK_RELATION_NAME,
-    STATUS_PEERS_RELATION_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
+    POSTGRESQL_RLEATION_NAME,
     ROLEBINDINGS_DISPATCHER_RELATION_NAME,
     ROLES_DISPATCHER_RELATION_NAME,
     SECRETS_DISPATCHER_RELATION_NAME,
     SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME,
+    SPARK_RELATION_NAME,
+    STATUS_PEERS_RELATION_NAME,
 )
-
 from core.config import (
     KafkaConfig,
     MongoDbConfig,
@@ -94,16 +91,16 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         self.kafka_requirer = KafkaRequirerData(
             self.charm.model,
             relation_name=KAFKA_RELATION_NAME,
-            topic=getattr(self.state.kafka_config, "topic_name", ""),
-            extra_user_roles=getattr(self.state.kafka_config, "extra_user_roles", ""),
-            consumer_group_prefix=getattr(self.state.kafka_config, "consumer_group_prefix", ""),
+            topic=getattr(self.kafka_config, "topic_name", ""),
+            extra_user_roles=getattr(self.kafka_config, "extra_user_roles", ""),
+            consumer_group_prefix=getattr(self.kafka_config, "consumer_group_prefix", ""),
         )
 
-        profile = getattr(self.state.profile_config, "profile", "")
+        profile = getattr(self.profile_config, "profile", "")
         namespace = profile if profile != "*" else self.charm.model.name
-        username = getattr(self.state.spark_config, "spark_service_account", "")
+        username = getattr(self.spark_config, "spark_service_account", "")
         self.spark_requirer = SparkServiceAccountRequirerData(
-            self.charm,
+            self.charm.model,
             relation_name=SPARK_RELATION_NAME,
             service_account=f"{namespace}:{username}",
             skip_creation=True,
@@ -337,34 +334,32 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
 
     def is_k8s_secrets_manifests_related(self) -> bool:
         """Is the charm related to a secrets manifests relation."""
-        return bool(self.state.charm.model.relations.get(SECRETS_DISPATCHER_RELATION_NAME))
+        return bool(self.charm.model.relations.get(SECRETS_DISPATCHER_RELATION_NAME))
 
     def is_k8s_poddefaults_manifests_related(self) -> bool:
         """Is the charm related to a poddefaults manifests relation."""
-        return bool(self.state.charm.model.relations.get(POD_DEFAULTS_DISPATCHER_RELATION_NAME))
+        return bool(self.charm.model.relations.get(POD_DEFAULTS_DISPATCHER_RELATION_NAME))
 
     def is_k8s_service_accounts_manifests_related(self) -> bool:
         """Is the charm related to a serviceaccounts manifests relation."""
-        return bool(
-            self.state.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME)
-        )
+        return bool(self.charm.model.relations.get(SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME))
 
     def is_k8s_roles_manifests_related(self) -> bool:
         """Is the charm related to a roles manifests relation."""
-        return bool(self.state.charm.model.relations.get(ROLES_DISPATCHER_RELATION_NAME))
+        return bool(self.charm.model.relations.get(ROLES_DISPATCHER_RELATION_NAME))
 
     def is_k8s_rolebindings_manifests_related(self) -> bool:
         """Is the charm related to a rolebindings manifests relation."""
-        return bool(self.state.charm.model.relations.get(ROLEBINDINGS_DISPATCHER_RELATION_NAME))
+        return bool(self.charm.model.relations.get(ROLEBINDINGS_DISPATCHER_RELATION_NAME))
 
     def is_manifests_provider_related(self):
         """Is the charm related to any manifests relation provider."""
         return any(
             [
-                self.is_k8s_poddefaults_manifests_related,
-                self.is_k8s_secrets_manifests_related,
-                self.is_k8s_service_accounts_manifests_related,
-                self.is_k8s_roles_manifests_related,
-                self.is_k8s_rolebindings_manifests_related,
+                self.is_k8s_poddefaults_manifests_related(),
+                self.is_k8s_secrets_manifests_related(),
+                self.is_k8s_service_accounts_manifests_related(),
+                self.is_k8s_roles_manifests_related(),
+                self.is_k8s_rolebindings_manifests_related(),
             ]
         )

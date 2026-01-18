@@ -65,7 +65,7 @@ class PostgresqlManager(DatabaseManager, ManagerStatusProtocol):
                 if invalid:
                     status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
 
-        if database_config and not self.is_database_related:
+        if database_config and not self.is_database_related():
             # Block the charm since we need the integration with postgresql
             status_list.append(CharmStatuses.missing_integration_with_postgresql())
 

@@ -10,7 +10,6 @@ import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import (
     KubernetesManifest,  # type: ignore[import-untyped]
 )
-from charms.spark_integration_hub_k8s.v0.spark_service_account import SparkServiceAccountRequirer
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from data_platform_helpers.advanced_statuses.types import Scope
@@ -31,6 +30,7 @@ from constants import (
 from core.config import SparkConfig
 from core.state import GlobalState
 from core.statuses import CharmStatuses, ConfigStatuses
+from managers.manifests import KubernetesManifestsManager
 from utils.helpers_manifests import generate_poddefault_manifest
 from utils.k8s_models import ReconciledManifests
 from utils.logging import WithLogging
@@ -42,6 +42,7 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
     def __init__(self, state: GlobalState):
         self.name = SPARK
         self.state = state
+        self.manifest_manager = KubernetesManifestsManager(state)
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
@@ -95,9 +96,22 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
 
         return rolebinding
 
+    def filter_manifests(
+        self, manifest_yaml: list[dict], kind: str, manifest_relation_exists: bool
+    ) -> list[KubernetesManifest]:
+        """Filter the manifests of given kind from the given list of resource objects."""
+        if not manifest_relation_exists:
+            return []
+
+        return [
+            KubernetesManifest(manifest_content=yaml.dump(res))
+            for res in manifest_yaml
+            if res["kind"] == kind
+        ]
+
     def generate_manifests(self) -> ReconciledManifests:
         """Generate kubernetes manifests for the current spark relation."""
-        if not (self.state.is_spark_related() and self.state.service_account_active):
+        if not (self.state.is_spark_related() and self.state.active_spark_service_account):
             return ReconciledManifests()
 
         # Fetch manifest from the relation
@@ -118,50 +132,21 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
 
         manifest_yaml = list(yaml.safe_load_all(raw_manifests))
 
-        secrets_manifests: list[KubernetesManifest] = (
-            [
-                KubernetesManifest(manifest_content=yaml.dump(res))
-                for res in manifest_yaml
-                if res["kind"] == "Secret"
-            ]
-            if self.is_k8s_secrets_manifests_related
-            else []
+        secrets_manifests = self.filter_manifests(
+            manifest_yaml, "Secret", self.state.is_k8s_secrets_manifests_related()
         )
-
-        service_accounts_manifest: list[KubernetesManifest] = (
-            [
-                KubernetesManifest(manifest_content=yaml.dump(res))
-                for res in manifest_yaml
-                if res["kind"] == "ServiceAccount"
-            ]
-            if self.is_k8s_service_accounts_manifests_related
-            else []
+        service_accounts_manifest = self.filter_manifests(
+            manifest_yaml, "ServiceAccount", self.state.is_k8s_service_accounts_manifests_related()
         )
-
-        roles_manifest: list[KubernetesManifest] = (
-            [
-                KubernetesManifest(manifest_content=yaml.dump(res))
-                for res in manifest_yaml
-                if res["kind"] == "Role"
-            ]
-            if self.is_k8s_roles_manifests_related
-            else []
+        roles_manifest = self.filter_manifests(
+            manifest_yaml, "Role", self.state.is_k8s_roles_manifests_related()
         )
-
-        rolebindings_manifest: list[KubernetesManifest] = (
-            [
-                KubernetesManifest(
-                    manifest_content=yaml.dump(self._patch_rolebinding_subject_namespace(res))
-                )
-                for res in manifest_yaml
-                if res["kind"] == "RoleBinding"
-            ]
-            if self.is_k8s_rolebindings_manifests_related
-            else []
+        rolebindings_manifest = self.filter_manifests(
+            manifest_yaml, "RoleBinding", self.state.is_k8s_rolebindings_manifests_related()
         )
 
         spark_pipeline_poddefault = generate_poddefault_manifest(
-            self.poddefault_k8s_template,
+            self.manifest_manager.poddefault_k8s_template,
             self.state.profile_config.profile,
             creds={"SPARK_SERVICE_ACCOUNT": service_account},
             database_name=SPARK,
@@ -171,7 +156,7 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             selector_name=SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
         )
         spark_notebook_poddefault = generate_poddefault_manifest(
-            self.poddefault_k8s_template,
+            self.manifest_manager.poddefault_k8s_template,
             self.state.profile_config.profile,
             creds={"SPARK_SERVICE_ACCOUNT": service_account},
             database_name=SPARK,
@@ -200,7 +185,7 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
         )
         poddefaults_manifest = (
             [spark_pipeline_poddefault, spark_notebook_poddefault]
-            if self.is_k8s_poddefaults_manifests_related
+            if self.state.is_k8s_poddefaults_manifests_related()
             else []
         )
 

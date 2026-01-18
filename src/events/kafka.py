@@ -64,5 +64,5 @@ class KafkaEventsHandler(Object, WithLogging):
                 "extra-user-roles": kafka_config.extra_user_roles or "",
                 "consumer-group-prefix": kafka_config.consumer_group_prefix or "",
             }
-            for rel in self.kafka.relations:
+            for rel in self.state.kafka_requirer.relations:
                 self.kafka.update_relation_data(rel.id, relation_data)

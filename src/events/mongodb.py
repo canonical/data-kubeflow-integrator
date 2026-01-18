@@ -66,5 +66,5 @@ class MongoDBEventsHandler(Object, WithLogging):
                 else "",
                 "extra-user-roles": self.state.mongodb_config.extra_user_roles or "",
             }
-            for rel in self.mongodb.relations:
+            for rel in self.state.mongodb_requirer.relations:
                 self.mongodb.update_relation_data(rel.id, relation_data)

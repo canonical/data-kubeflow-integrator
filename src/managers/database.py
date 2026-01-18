@@ -16,7 +16,7 @@ from constants import (
     K8S_DATABASE_TLS_CERT_PATH,
     K8S_DATABASE_TLS_SECRET_NAME,
 )
-from core.config import MongoDbConfig, MysqlConfig, PostgresqlConfig, OpenSearchConfig
+from core.config import MongoDbConfig, MysqlConfig, OpenSearchConfig, PostgresqlConfig
 from core.state import GlobalState
 from managers.manifests import KubernetesManifestsManager
 from utils.helpers_manifests import (

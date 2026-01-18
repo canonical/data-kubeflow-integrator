@@ -14,16 +14,15 @@ from constants import OPENSEARCH
 from core.config import OpenSearchConfig
 from core.state import GlobalState
 from core.statuses import CharmStatuses, ConfigStatuses
-from utils.logging import WithLogging
 from managers.database import DatabaseManager
+from utils.logging import WithLogging
 
 
 class OpenSearchManager(DatabaseManager, ManagerStatusProtocol, WithLogging):
     """Manager for Opensearch relation."""
 
     def __init__(self, state: GlobalState):
-        self.name = OPENSEARCH
-        self.state = state
+        super().__init__(state, OPENSEARCH)
 
     @property
     def database_requirer(self) -> OpenSearchRequiresData:
@@ -67,7 +66,7 @@ class OpenSearchManager(DatabaseManager, ManagerStatusProtocol, WithLogging):
                     status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
                 if invalid:
                     status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
-        if opensearch_config and not self.is_opensearch_related:
+        if opensearch_config and not self.state.is_opensearch_related():
             # Block the charm since we need the integration with opensearch
             status_list.append(CharmStatuses.missing_integration_with_opensearch())
 

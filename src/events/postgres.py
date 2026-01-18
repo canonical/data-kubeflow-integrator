@@ -67,5 +67,5 @@ class PostgresEventsHandler(Object, WithLogging):
                 else "",
                 "extra-user-roles": self.state.postgresql_config.extra_user_roles or "",
             }
-            for rel in self.postgresql.relations:
+            for rel in self.state.postgresql_requirer.relations:
                 self.postgresql.update_relation_data(rel.id, relation_data)
