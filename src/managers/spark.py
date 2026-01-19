@@ -4,7 +4,7 @@
 
 """Manager for Spark related tasks."""
 
-from typing import cast
+from typing import Callable, cast
 
 import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import (
@@ -97,14 +97,20 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
         return rolebinding
 
     def filter_manifests(
-        self, manifest_yaml: list[dict], kind: str, manifest_relation_exists: bool
+        self,
+        manifest_yaml: list[dict],
+        kind: str,
+        manifest_relation_exists: bool,
+        patch_function: Callable | None = None,
     ) -> list[KubernetesManifest]:
         """Filter the manifests of given kind from the given list of resource objects."""
         if not manifest_relation_exists:
             return []
 
         return [
-            KubernetesManifest(manifest_content=yaml.dump(res))
+            KubernetesManifest(
+                manifest_content=yaml.dump(patch_function(res) if patch_function else res)
+            )
             for res in manifest_yaml
             if res["kind"] == kind
         ]
@@ -142,7 +148,10 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             manifest_yaml, "Role", self.state.is_k8s_roles_manifests_related()
         )
         rolebindings_manifest = self.filter_manifests(
-            manifest_yaml, "RoleBinding", self.state.is_k8s_rolebindings_manifests_related()
+            manifest_yaml,
+            "RoleBinding",
+            self.state.is_k8s_rolebindings_manifests_related(),
+            patch_function=self._patch_rolebinding_subject_namespace,
         )
 
         spark_pipeline_poddefault = generate_poddefault_manifest(
