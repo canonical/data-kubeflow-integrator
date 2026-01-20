@@ -59,7 +59,7 @@ class PostgresqlEventsHandler(Object, WithLogging):
         pass
 
     def update_relation_data(self) -> None:
-        """Update opensearch relation data with latest config."""
+        """Update postgresql relation data with latest config."""
         if self.state.postgresql_config:
             relation_data = {
                 "database": self.state.postgresql_config.database_name

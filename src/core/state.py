@@ -242,7 +242,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         return self.is_relation_ready(self.kafka_requirer)
 
     def is_spark_related(self) -> bool:
-        """Check if we have a relation with Kafka."""
+        """Check if we have a relation with Integration Hub."""
         return self.is_relation_ready(
             self.spark_requirer, ["service-account", "resource-manifest", "spark-properties"]
         )
