@@ -16,7 +16,7 @@ from events.manifest import ManifestEventsHandler
 from events.mongodb import MongoDBEventsHandler
 from events.mysql import MySQLEventsHandler
 from events.opensearch import OpenSearchEventsHandler
-from events.postgres import PostgresEventsHandler
+from events.postgresql import PostgresqlEventsHandler
 from events.spark import SparkEventsHandler
 from managers.kafka import KafkaManager
 from managers.mongodb import MongodbManager
@@ -64,7 +64,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
         self.mongodb_events = MongoDBEventsHandler(self, self.state)
         self.mysql_events = MySQLEventsHandler(self, self.state)
         self.opensearch_events = OpenSearchEventsHandler(self, self.state)
-        self.postgres_events = PostgresEventsHandler(self, self.state)
+        self.postgresql_events = PostgresqlEventsHandler(self, self.state)
         self.spark_events = SparkEventsHandler(self, self.state)
         self.manifest_events = ManifestEventsHandler(self, self.state)
 

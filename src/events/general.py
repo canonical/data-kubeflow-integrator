@@ -43,7 +43,7 @@ class GeneralEventsHandler(Object, WithLogging):
 
         if self.state.postgresql_config and not self.state.active_postgresql_database:
             # route the config change to postgresql manager
-            self.charm.postgres_events.update_relation_data()
+            self.charm.postgresql_events.update_relation_data()
 
         if self.state.mysql_config and not self.state.active_mysql_database:
             # route the config change to mysql manager

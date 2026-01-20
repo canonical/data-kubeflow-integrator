@@ -25,11 +25,11 @@ if TYPE_CHECKING:
     from charm import KubeflowIntegratorCharm
 
 
-class PostgresEventsHandler(Object, WithLogging):
+class PostgresqlEventsHandler(Object, WithLogging):
     """Class implementing Postgres events handling."""
 
     def __init__(self, charm: KubeflowIntegratorCharm, state: GlobalState):
-        super().__init__(charm, key="postgres")
+        super().__init__(charm, key="postgresql")
 
         self.charm = charm
         self.state = state
