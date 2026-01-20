@@ -13,13 +13,14 @@ from charms.data_platform_libs.v0.data_interfaces import (
     DataPeerUnitData,
     KafkaRequirerData,
     OpenSearchRequiresData,
+    RequirerData,
 )
 from charms.data_platform_libs.v0.data_models import ValidationError
 from charms.spark_integration_hub_k8s.v0.spark_service_account import (
     SparkServiceAccountRequirerData,
 )
 from data_platform_helpers.advanced_statuses.protocol import StatusesState, StatusesStateProtocol
-from ops import Object, Relation
+from ops import Object
 
 from constants import (
     KAFKA_RELATION_NAME,
@@ -108,30 +109,6 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
 
         self.statuses = StatusesState(self, STATUS_PEERS_RELATION_NAME)
 
-    # Relations
-
-    @property
-    def peer_relation(self) -> Relation | None:
-        """Get the cluster peer relation."""
-        return self.model.get_relation(PEER_RELATION)
-
-    @property
-    def opensearch_relation(self) -> Relation | None:
-        """Get the opensearch relation."""
-        return self.model.get_relation(OPENSEARCH_RELATION_NAME)
-
-    @property
-    def postgresql_relation(self) -> Relation | None:
-        """Get the postgresql relation."""
-        return self.model.get_relation(POSTGRESQL_RLEATION_NAME)
-
-    @property
-    def mysql_relation(self) -> Relation | None:
-        """Get the mysql relation."""
-        return self.model.get_relation(MYSQL_RELATION_NAME)
-
-    # Charm Configurations
-
     @property
     def opensearch_config(self) -> OpenSearchConfig | None:
         """Return information regarding opensearch config options."""
@@ -188,149 +165,87 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         except ValidationError:
             return None
 
-    # OpenSearch Relation
+    def _get_field(self, relation_data: RequirerData, field: str) -> str | None:
+        """Get a field from the first relation if it exists."""
+        if relation := relation_data.relations[0] if len(relation_data.relations) else None:
+            return relation_data.fetch_relation_field(relation.id, field)
+        return None
+
+    def is_relation_ready(
+        self, relation_data: RequirerData, required_fields: list[str] | None = None
+    ) -> bool:
+        """Check if we have a relation with a database."""
+        required_fields = required_fields or ["username", "password"]
+        for relation in relation_data.relations:
+            data = relation_data.fetch_relation_data([relation.id], required_fields).get(
+                relation.id, {}
+            )
+            if all(data.get(key) for key in required_fields):
+                return True
+        return False
+
     @property
     def active_opensearch_index(self) -> str | None:
         """Return the created and configured opensearch index."""
-        if (
-            relation := self.opensearch_requirer.relations[0]
-            if len(self.opensearch_requirer.relations)
-            else None
-        ):
-            return self.opensearch_requirer.fetch_relation_field(relation.id, "index")
-        return None
+        return self._get_field(self.opensearch_requirer, "index")
 
-    def is_opensearch_related(self) -> bool:
-        """Check if we have a relation with OpenSearch."""
-        for relation in self.opensearch_requirer.relations:
-            data = self.opensearch_requirer.fetch_relation_data(
-                [relation.id], ["username", "password"]
-            ).get(relation.id, {})
-            if all(data.get(key) for key in ("username", "password")):
-                return True
-        return False
-
-    # PostgreSQL Relation
     @property
     def active_postgresql_database(self) -> str | None:
         """Return the created and configured postgresql database."""
-        if (
-            relation := self.postgresql_requirer.relations[0]
-            if len(self.postgresql_requirer.relations)
-            else None
-        ):
-            return self.postgresql_requirer.fetch_relation_field(relation.id, "database")
-        return None
+        return self._get_field(self.postgresql_requirer, "database")
 
-    def is_postgresql_related(self) -> bool:
-        """Check if we have a relation with PostgreSQL."""
-        for relation in self.postgresql_requirer.relations:
-            data = self.postgresql_requirer.fetch_relation_data(
-                [relation.id], ["username", "password"]
-            ).get(relation.id, {})
-            if all(data.get(key) for key in ("username", "password")):
-                return True
-        return False
-
-    # MySQL Relation
     @property
     def active_mysql_database(self) -> str | None:
         """Return the created and configured mysql database."""
-        if (
-            relation := self.mysql_requirer.relations[0]
-            if len(self.mysql_requirer.relations)
-            else None
-        ):
-            return self.mysql_requirer.fetch_relation_field(relation.id, "database")
-        return None
+        return self._get_field(self.mysql_requirer, "database")
 
-    def is_mysql_related(self) -> bool:
-        """Check if we have a relation with MySQL."""
-        for relation in self.mysql_requirer.relations:
-            data = self.mysql_requirer.fetch_relation_data(
-                [relation.id], ["username", "password"]
-            ).get(relation.id, {})
-            if all(data.get(key) for key in ("username", "password")):
-                return True
-        return False
-
-    # MongoDB Relation
     @property
     def active_mongodb_database(self) -> str | None:
         """Return the created and configured mongodb database."""
-        if (
-            relation := self.mongodb_requirer.relations[0]
-            if len(self.mongodb_requirer.relations)
-            else None
-        ):
-            return self.mongodb_requirer.fetch_relation_field(relation.id, "database")
-        return None
+        return self._get_field(self.mongodb_requirer, "database")
 
-    def is_mongodb_related(self) -> bool:
-        """Check if we have a relation with MongoDB."""
-        for relation in self.mongodb_requirer.relations:
-            data = self.mongodb_requirer.fetch_relation_data(
-                [relation.id], ["username", "password"]
-            ).get(relation.id, {})
-            if all(data.get(key) for key in ("username", "password")):
-                return True
-        return False
-
-    # Kafka Relation
     @property
     def active_kafka_topic(self) -> str | None:
         """Return the created and configured kafka topic."""
-        if (
-            relation := self.kafka_requirer.relations[0]
-            if len(self.kafka_requirer.relations)
-            else None
-        ):
-            return self.kafka_requirer.fetch_relation_field(relation.id, "topic")
-        return None
-
-    def is_kafka_related(self) -> bool:
-        """Check if we have a relation with Kafka."""
-        for relation in self.kafka_requirer.relations:
-            data = self.kafka_requirer.fetch_relation_data(
-                [relation.id], ["username", "password"]
-            ).get(relation.id, {})
-            if all(data.get(key) for key in ("username", "password")):
-                return True
-        return False
-
-    # Spark Relation
-    def is_spark_related(self) -> bool:
-        """Check if we have a relation with Kafka."""
-        for relation in self.spark_requirer.relations:
-            data = self.spark_requirer.fetch_relation_data(
-                [relation.id], ["service-account", "resource-manifest", "spark-properties"]
-            ).get(relation.id, {})
-            if all(
-                data.get(key)
-                for key in ("service-account", "resource-manifest", "spark-properties")
-            ):
-                return True
-        return False
+        return self._get_field(self.kafka_requirer, "topic")
 
     @property
     def active_spark_service_account(self) -> str | None:
         """Return the service account that was created and configured."""
-        if (
-            relation := self.spark_requirer.relations[0]
-            if len(self.spark_requirer.relations)
-            else None
-        ):
-            sa_with_namespace = self.spark_requirer.fetch_relation_field(
-                relation.id, "service-account"
-            )
-            if not sa_with_namespace:
-                return None
-            parts = sa_with_namespace.split(":")
-            if len(parts) != 2:
-                return None
-            _, service_account = parts
-            return service_account
-        return None
+        sa_with_namespace = self._get_field(self.spark_requirer, "service-account")
+        if not sa_with_namespace:
+            return None
+        parts = sa_with_namespace.split(":")
+        if len(parts) != 2:
+            return None
+        _, service_account = parts
+        return service_account
+
+    def is_opensearch_related(self) -> bool:
+        """Check if we have a relation with OpenSearch."""
+        return self.is_relation_ready(self.opensearch_requirer)
+
+    def is_postgresql_related(self) -> bool:
+        """Check if we have a relation with PostgreSQL."""
+        return self.is_relation_ready(self.postgresql_requirer)
+
+    def is_mysql_related(self) -> bool:
+        """Check if we have a relation with MySQL."""
+        return self.is_relation_ready(self.mysql_requirer)
+
+    def is_mongodb_related(self) -> bool:
+        """Check if we have a relation with MongoDB."""
+        return self.is_relation_ready(self.mongodb_requirer)
+
+    def is_kafka_related(self) -> bool:
+        """Check if we have a relation with Kafka."""
+        return self.is_relation_ready(self.kafka_requirer)
+
+    def is_spark_related(self) -> bool:
+        """Check if we have a relation with Kafka."""
+        return self.is_relation_ready(
+            self.spark_requirer, ["service-account", "resource-manifest", "spark-properties"]
+        )
 
     def is_k8s_secrets_manifests_related(self) -> bool:
         """Is the charm related to a secrets manifests relation."""
