@@ -11,12 +11,19 @@ from data_platform_helpers.advanced_statuses.handler import StatusHandler
 
 from core.state import GlobalState
 from events.general import GeneralEventsHandler
+from events.kafka import KafkaEventsHandler
+from events.manifest import ManifestEventsHandler
+from events.mongodb import MongoDBEventsHandler
+from events.mysql import MySQLEventsHandler
+from events.opensearch import OpenSearchEventsHandler
+from events.postgresql import PostgresqlEventsHandler
+from events.spark import SparkEventsHandler
 from managers.kafka import KafkaManager
-from managers.manifests import KubernetesManifestsManager
 from managers.mongodb import MongodbManager
 from managers.mysql import MysqlManager
 from managers.opensearch import OpenSearchManager
 from managers.postgresql import PostgresqlManager
+from managers.profile import KubeflowProfileManager
 from managers.spark import SparkManager
 
 logger = logging.getLogger(__name__)
@@ -38,11 +45,11 @@ class KubeflowIntegratorCharm(ops.CharmBase):
         self.postgresql_manager = PostgresqlManager(self.state)
         self.mongodb_manager = MongodbManager(self.state)
         self.spark_manager = SparkManager(self.state)
-        self.manifests_manager = KubernetesManifestsManager(self.state)
+        self.profile_manager = KubeflowProfileManager(self.state)
 
         self.status = StatusHandler(  # priority order
             self,
-            self.manifests_manager,
+            self.profile_manager,
             self.kafka_manager,
             self.opensearch_manager,
             self.mysql_manager,
@@ -53,6 +60,13 @@ class KubeflowIntegratorCharm(ops.CharmBase):
 
         # Event Handlers
         self.general_events = GeneralEventsHandler(self, self.state)
+        self.kafka_events = KafkaEventsHandler(self, self.state)
+        self.mongodb_events = MongoDBEventsHandler(self, self.state)
+        self.mysql_events = MySQLEventsHandler(self, self.state)
+        self.opensearch_events = OpenSearchEventsHandler(self, self.state)
+        self.postgresql_events = PostgresqlEventsHandler(self, self.state)
+        self.spark_events = SparkEventsHandler(self, self.state)
+        self.manifest_events = ManifestEventsHandler(self, self.state)
 
 
 if __name__ == "__main__":  # pragma: nocover

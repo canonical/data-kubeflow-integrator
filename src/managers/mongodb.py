@@ -4,7 +4,7 @@
 
 """Manager for MongoDB related tasks."""
 
-from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires, Scope
+from charms.data_platform_libs.v0.data_interfaces import DatabaseRequirerData, Scope
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from pydantic import ValidationError
@@ -23,14 +23,23 @@ class MongodbManager(DatabaseManager, ManagerStatusProtocol):
         super().__init__(state, MONGODB)
 
     @property
-    def database_requirer(self) -> DatabaseRequires:
-        """Returns DatabaseRequires from events handler."""
-        return self.state.charm.general_events.mongodb
+    def database_requirer(self) -> DatabaseRequirerData:
+        """Returns DatabaseRequirerData from events handler."""
+        return self.state.mongodb_requirer
 
     @property
     def database_config(self) -> MongoDbConfig | None:
         """Returns mongodb config from the global state."""
         return self.state.mongodb_config
+
+    @property
+    def active_database(self) -> str | None:
+        """Return the created and configured database."""
+        return self.state.active_mongodb_database
+
+    def is_database_related(self) -> bool:
+        """Check if we have a relation with mongodb."""
+        return self.state.is_mongodb_related()
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component."""
@@ -55,7 +64,7 @@ class MongodbManager(DatabaseManager, ManagerStatusProtocol):
                     status_list.append(ConfigStatuses.missing_config_parameters(fields=missing))
                 if invalid:
                     status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
-        if database_config and not self.is_database_related:
+        if database_config and not self.is_database_related():
             # Block the charm since we need the integration with opensearch
             status_list.append(CharmStatuses.missing_integration_with_mongodb())
 
