@@ -174,7 +174,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
     def is_relation_ready(
         self, relation_data: RequirerData, required_fields: list[str] | None = None
     ) -> bool:
-        """Check if we have a relation with a database."""
+        """Check if we have a relation with the desired product."""
         required_fields = required_fields or ["username", "password"]
         for relation in relation_data.relations:
             data = relation_data.fetch_relation_data([relation.id], required_fields).get(
