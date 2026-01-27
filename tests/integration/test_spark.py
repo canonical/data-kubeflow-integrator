@@ -246,7 +246,9 @@ def test_resource_dispatcher_relations(
             ).values()
         )
     )
-    res_in_relation_data = json.loads(relation_data["kubernetes_manifests"])
+    secret_uri = relation_data["kubernetes_manifests"]
+    secret_content = juju.show_secret(identifier=secret_uri, reveal=True).content
+    res_in_relation_data = json.loads(secret_content["manifests"])
     assert (
         len(
             [
