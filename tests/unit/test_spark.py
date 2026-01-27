@@ -152,51 +152,76 @@ def test_charm_active_and_manifests_generated_when_serviceaccount_configured(
     state_out = ctx.run(ctx.on.relation_changed(secrets_relation), state_in)
     assert state_out.app_status == ActiveStatus()
 
-    # Make sure the secret manifest is generated
-    kubernetes_manifests = state_out.get_relation(secrets_relation.id).local_app_data[
-        "kubernetes_manifests"
+    # Make sure the manifest is generated
+    app_data = state_out.get_relation(secrets_relation.id).local_app_data
+    assert app_data["is_secret"] == "true"
+    manifests_secret_id = app_data["kubernetes_manifests"]
+    manifest_secret = [secret for secret in state_out.secrets if secret.id == manifests_secret_id][
+        0
     ]
-    kubernetes_manifests = json.loads(kubernetes_manifests)
+    secret_content = manifest_secret.latest_content
+    assert secret_content is not None
+    kubernetes_manifests = json.loads(secret_content["manifests"])
     generated_secret = kubernetes_manifests[0]
     assert generated_secret["apiVersion"] == "v1"
     assert generated_secret["kind"] == "Secret"
     assert generated_secret["metadata"]["name"] == "integrator-hub-conf-spark"
 
-    # Make sure the service-accounts manifest is generated
-    kubernetes_manifests = state_out.get_relation(service_accounts_relation.id).local_app_data[
-        "kubernetes_manifests"
+    # Make sure the manifest is generated
+    app_data = state_out.get_relation(service_accounts_relation.id).local_app_data
+    assert app_data["is_secret"] == "true"
+    manifests_secret_id = app_data["kubernetes_manifests"]
+    manifest_secret = [secret for secret in state_out.secrets if secret.id == manifests_secret_id][
+        0
     ]
-    kubernetes_manifests = json.loads(kubernetes_manifests)
+    secret_content = manifest_secret.latest_content
+    assert secret_content is not None
+    kubernetes_manifests = json.loads(secret_content["manifests"])
     service_account = kubernetes_manifests[0]
     assert service_account["apiVersion"] == "v1"
     assert service_account["kind"] == "ServiceAccount"
     assert service_account["metadata"]["name"] == "spark"
 
-    # Make sure the roles manifest is generated
-    kubernetes_manifests = state_out.get_relation(roles_relation.id).local_app_data[
-        "kubernetes_manifests"
+    # Make sure the manifest is generated
+    app_data = state_out.get_relation(roles_relation.id).local_app_data
+    assert app_data["is_secret"] == "true"
+    manifests_secret_id = app_data["kubernetes_manifests"]
+    manifest_secret = [secret for secret in state_out.secrets if secret.id == manifests_secret_id][
+        0
     ]
-    kubernetes_manifests = json.loads(kubernetes_manifests)
+    secret_content = manifest_secret.latest_content
+    assert secret_content is not None
+    kubernetes_manifests = json.loads(secret_content["manifests"])
     role = kubernetes_manifests[0]
     assert role["apiVersion"] == "rbac.authorization.k8s.io/v1"
     assert role["kind"] == "Role"
     assert role["metadata"]["name"] == "spark-role"
 
-    # Make sure the role-bindings manifest is generated
-    kubernetes_manifests = state_out.get_relation(role_bindings_relation.id).local_app_data[
-        "kubernetes_manifests"
+    # Make sure the manifest is generated
+    app_data = state_out.get_relation(role_bindings_relation.id).local_app_data
+    assert app_data["is_secret"] == "true"
+    manifests_secret_id = app_data["kubernetes_manifests"]
+    manifest_secret = [secret for secret in state_out.secrets if secret.id == manifests_secret_id][
+        0
     ]
-    kubernetes_manifests = json.loads(kubernetes_manifests)
+    secret_content = manifest_secret.latest_content
+    assert secret_content is not None
+    kubernetes_manifests = json.loads(secret_content["manifests"])
     rolebinding = kubernetes_manifests[0]
     assert rolebinding["apiVersion"] == "rbac.authorization.k8s.io/v1"
     assert rolebinding["kind"] == "RoleBinding"
     assert rolebinding["metadata"]["name"] == "spark-role-binding"
 
-    # Make sure the pod-defaults manifest is generated
-    kubernetes_manifests = state_out.get_relation(pod_defaults_relation.id).local_app_data[
-        "kubernetes_manifests"
+    # Make sure the manifest is generated
+    app_data = state_out.get_relation(pod_defaults_relation.id).local_app_data
+    assert app_data["is_secret"] == "true"
+    manifests_secret_id = app_data["kubernetes_manifests"]
+    manifest_secret = [secret for secret in state_out.secrets if secret.id == manifests_secret_id][
+        0
     ]
-    kubernetes_manifests = json.loads(kubernetes_manifests)
+    secret_content = manifest_secret.latest_content
+    assert secret_content is not None
+    kubernetes_manifests = json.loads(secret_content["manifests"])
     assert len(kubernetes_manifests) == 2
 
     pipeline_poddefault = [

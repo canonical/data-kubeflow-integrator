@@ -85,12 +85,19 @@ def test_integrate_kubeflow_with_resource_dispatcher(
             # Check application data
             secrets_rel_data = list(
                 get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "secrets").items()
-            )[0]
-            assert secrets_rel_data[1] == {"kubernetes_manifests": "[]"}
+            )[0][1]
+            secret_manifests_content = juju.show_secret(
+                identifier=secrets_rel_data["kubernetes_manifests"], reveal=True
+            ).content
+            assert secret_manifests_content == {"manifests": "[]"}
+
             poddefaults_rel_data = list(
                 get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "pod-defaults").items()
-            )[0]
-            assert poddefaults_rel_data[1] == {"kubernetes_manifests": "[]"}
+            )[0][1]
+            poddefaults_manifest_content = juju.show_secret(
+                identifier=poddefaults_rel_data["kubernetes_manifests"], reveal=True
+            ).content
+            assert poddefaults_manifest_content == {"manifests": "[]"}
 
 
 def test_manifests_generation_with_opensearch(juju: jubilant.Juju, juju_vm: jubilant.Juju):
@@ -158,21 +165,24 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, juju_vm: jubi
     # Check application data
     secrets_rel_data = list(
         get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "secrets").items()
-    )[0]
-    assert secrets_rel_data[1] != {}
+    )[0][1]
     poddefaults_rel_data = list(
         get_application_data(juju, RESOURCE_DISPATCHER_APP_NAME, "pod-defaults").items()
-    )[0]
-    assert poddefaults_rel_data[1] != {}
+    )[0][1]
 
-    assert "kubernetes_manifests" in secrets_rel_data[1]
-    secrets_k8s_manifests = json.loads(secrets_rel_data[1]["kubernetes_manifests"])
+    secret_manifests_content = juju.show_secret(
+        identifier=secrets_rel_data["kubernetes_manifests"], reveal=True
+    ).content
+    poddefaults_manifest_content = juju.show_secret(
+        identifier=poddefaults_rel_data["kubernetes_manifests"], reveal=True
+    ).content
+
+    secrets_k8s_manifests = json.loads(secret_manifests_content["manifests"])
     for secret_manifest in secrets_k8s_manifests:
         secret = validate_k8s_secret(secret_manifest)
         if secret.metadata.name == "opensearch-secret":
             assert secret.data["OPENSEARCH_INDEX"] == base64.b64encode(b"foobar").decode()
 
-    assert "kubernetes_manifests" in poddefaults_rel_data[1]
-    poddefaults_k8s_manifests = json.loads(poddefaults_rel_data[1]["kubernetes_manifests"])
+    poddefaults_k8s_manifests = json.loads(poddefaults_manifest_content["manifests"])
     for poddefault_manifest in poddefaults_k8s_manifests:
         validate_k8s_poddefault(poddefault_manifest)

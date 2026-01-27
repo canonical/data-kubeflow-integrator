@@ -106,11 +106,18 @@ def test_charm_generate_secret_manifests_when_integrated(
 
     # Then:
     assert state_out.app_status == ActiveStatus()
+
     # Make sure the manifest is generated
-    kubernetes_manifests = state_out.get_relation(secrets_manifests_relation.id).local_app_data[
-        "kubernetes_manifests"
+    app_data = state_out.get_relation(secrets_manifests_relation.id).local_app_data
+    assert app_data["is_secret"] == "true"
+    manifests_secret_id = app_data["kubernetes_manifests"]
+    manifest_secret = [secret for secret in state_out.secrets if secret.id == manifests_secret_id][
+        0
     ]
-    kubernetes_manifests = json.loads(kubernetes_manifests)
+    secret_content = manifest_secret.latest_content
+    assert secret_content is not None
+    kubernetes_manifests = json.loads(secret_content["manifests"])
+
     generated_secret = kubernetes_manifests[0]
     assert generated_secret["apiVersion"] == "v1"
     assert generated_secret["kind"] == "Secret"
@@ -182,11 +189,18 @@ def test_charm_generate_no_namespace_secret_manifests_when_integrated(
 
     # Then:
     assert state_out.app_status == ActiveStatus()
+
     # Make sure the manifest is generated
-    kubernetes_manifests = state_out.get_relation(secrets_manifests_relation.id).local_app_data[
-        "kubernetes_manifests"
+    app_data = state_out.get_relation(secrets_manifests_relation.id).local_app_data
+    assert app_data["is_secret"] == "true"
+    manifests_secret_id = app_data["kubernetes_manifests"]
+    manifest_secret = [secret for secret in state_out.secrets if secret.id == manifests_secret_id][
+        0
     ]
-    kubernetes_manifests = json.loads(kubernetes_manifests)
+    secret_content = manifest_secret.latest_content
+    assert secret_content is not None
+    kubernetes_manifests = json.loads(secret_content["manifests"])
+
     generated_secret = kubernetes_manifests[0]
     assert generated_secret["apiVersion"] == "v1"
     assert generated_secret["kind"] == "Secret"
