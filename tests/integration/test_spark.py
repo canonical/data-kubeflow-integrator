@@ -186,7 +186,6 @@ def test_deploy_resource_dispatcher_setup(juju: jubilant.Juju):
         RESOURCE_DISPATCHER,
         channel=RESOURCE_DISPATCHER_CHANNEL,
         trust=True,
-        revision=432,  # TODO: Remove pin once merged to latest/edge
     )
     juju.wait(
         lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5

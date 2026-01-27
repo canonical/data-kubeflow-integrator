@@ -59,7 +59,6 @@ def test_integrate_kubeflow_with_resource_dispatcher(
         trust=True,
         channel=RESOURCE_DISPATCHER_CHANNEL,
         app=RESOURCE_DISPATCHER_APP_NAME,
-        revision=432,  # TODO: Remove pin once merged to latest/edge
     )
     juju.deploy(
         kubeflow_integrator,
