@@ -157,10 +157,23 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
         spark_pipeline_poddefault = generate_poddefault_manifest(
             self.manifest_manager.poddefault_k8s_template,
             self.state.profile_config.profile,
-            creds={"SPARK_SERVICE_ACCOUNT": service_account},
+            creds={
+                "SPARK_SERVICE_ACCOUNT": service_account,
+                "PYSPARK_SUBMIT_ARGS": (
+                    f" --conf spark.driver.port={SPARK_DRIVER_PORT}"
+                    f" --conf spark.blockManager.port={SPARK_BLOCK_MANAGER_PORT}"
+                    f" --conf spark.kubernetes.executor.annotation.traffic.sidecar.istio.io/excludeInboundPorts={SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}"
+                    f" --conf spark.kubernetes.executor.annotation.traffic.sidecar.istio.io/excludeOutboundPorts={SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}"
+                    " pyspark-shell"
+                ),
+            },
             database_name=SPARK,
             poddefault_name=SPARK_PIPELINE_PODDEFAULT_NAME,
             poddefault_description=SPARK_PIPELINE_PODDEFAULT_DESC,
+            annotations={
+                "traffic.sidecar.istio.io/excludeInboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+                "traffic.sidecar.istio.io/excludeOutboundPorts": f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}",
+            },
             fieldrefs={"SPARK_NAMESPACE": "metadata.namespace"},
             selector_name=SPARK_PIPELINE_PODDEFAULT_SELECTOR_LABEL,
         )
