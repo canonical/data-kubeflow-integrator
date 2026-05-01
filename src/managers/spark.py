@@ -74,7 +74,22 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
 
         if (
             self.state.is_spark_related()
+            and self.state.profile_config
+            and self.state.active_spark_namespace
+            and self.state.active_spark_namespace != self.state.profile_config.profile
+            # Spark namespace from integration hub can never be "*" since in that case current model namespace is used.
+            and self.state.profile_config.profile != "*"
+        ):
+            status_list.append(
+                ConfigStatuses.config_change_requires_relation_recreation(
+                    config_option="profile", relation_name=SPARK_RELATION_NAME
+                )
+            )
+
+        if (
+            self.state.is_spark_related()
             and spark_config
+            and self.state.active_spark_service_account
             and self.state.active_spark_service_account != spark_config.spark_service_account
         ):
             status_list.append(
@@ -82,6 +97,7 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
                     config_option="spark-service-account", relation_name=SPARK_RELATION_NAME
                 )
             )
+
         return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
     def _patch_manifest_namespace(self, manifest: dict) -> dict:

@@ -221,6 +221,18 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         _, service_account = parts
         return service_account
 
+    @property
+    def active_spark_namespace(self) -> str | None:
+        """Return the namespace that was associated with the Spark Integration Hub relation."""
+        sa_with_namespace = self._get_field(self.spark_requirer, "service-account")
+        if not sa_with_namespace:
+            return None
+        parts = sa_with_namespace.split(":")
+        if len(parts) != 2:
+            return None
+        namespace, _ = parts
+        return namespace
+
     def is_opensearch_related(self) -> bool:
         """Check if we have a relation with OpenSearch."""
         return self.is_relation_ready(self.opensearch_requirer)
