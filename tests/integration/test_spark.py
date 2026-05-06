@@ -445,13 +445,7 @@ def test_pod_default_gets_applied(
     )
     assert notebook_pod.spec is not None
     container = notebook_pod.spec.containers[0]
-    env_vars = {
-        env.name: {"value": env.value, "valueFrom": env.valueFrom} for env in container.env
-    }
-
-    # The PodDefault should not be applied to the pod in profile B since profile B is not the active profile, so these env vars should not be present
-    assert "SPARK_SERVICE_ACCOUNT" not in env_vars
-    assert "SPARK_NAMESPACE" not in env_vars
+    assert container.env is None or len(container.env) == 0
 
 
 def test_change_in_spark_properties_reflected(
