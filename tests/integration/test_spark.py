@@ -424,7 +424,7 @@ def test_pod_default_gets_applied(
         Pod(
             metadata=ObjectMeta(
                 name=pod_name,
-                namespace=kubeflow_user_profile_a,
+                namespace=kubeflow_user_profile_b,
                 labels={selector_label: "true"},
             ),
             spec=PodSpec(
@@ -579,9 +579,6 @@ def test_change_active_profile_from_a_to_b(
     # To change the profile, the integration hub relation needs to be torn down first
     juju.remove_relation(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
     juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
-    )
-    juju.wait(
         lambda status: jubilant.all_active(
             status,
             SPARK_INTEGRATION_HUB,
@@ -663,9 +660,6 @@ def test_enable_wildcard_profile(
 
     # To change the profile, the integration hub relation needs to be torn down first
     juju.remove_relation(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
-    juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
-    )
     juju.wait(
         lambda status: jubilant.all_active(
             status,
