@@ -128,6 +128,7 @@ prepare: |
     # Required for Juju bootstrap on strict microk8s runners.
     microk8s enable hostpath-storage rbac
     microk8s status --wait-ready
+    microk8s kubectl get nodes -o wide
 
     tee /var/snap/microk8s/current/args/certs.d/docker.io/hosts.toml << EOF
     server = "$DOCKERHUB_MIRROR"
@@ -137,12 +138,14 @@ prepare: |
     microk8s stop
     microk8s start
     microk8s status --wait-ready
+    microk8s kubectl get nodes -o wide
   fi
 
   # Install charmcraft & pipx (on lxd-vm backend)
   concierge prepare --trace
 
-  pipx install tox poetry
+  pipx install tox
+  pipx install poetry
 prepare-each: |
   cd "$SPREAD_PATH"
   if [[ $SPREAD_VARIANT == *"juju29"* ]]
