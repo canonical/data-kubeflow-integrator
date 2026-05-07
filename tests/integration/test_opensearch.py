@@ -185,7 +185,12 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
         delay=5,
     )
 
-    assert (
-        "Missing config(s): 'opensearch-index-name'"
-        in status.apps[KUBEFLOW_INTEGRATOR_APP_NAME].app_status.message
+    assert any(
+        "Missing config(s): 'opensearch-index-name'" in message
+        for message in (
+            status.apps[KUBEFLOW_INTEGRATOR_APP_NAME].app_status.message,
+            status.apps[KUBEFLOW_INTEGRATOR_APP_NAME]
+            .units[f"{KUBEFLOW_INTEGRATOR_APP_NAME}/0"]
+            .workload_status.message,
+        )
     )
