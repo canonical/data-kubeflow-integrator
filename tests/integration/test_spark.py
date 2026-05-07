@@ -730,7 +730,10 @@ def test_resources_create_across_all_profiles(
 
 
 def test_remove_spark_integration_hub_integration(
-    juju: jubilant.Juju, lightkube_client: lightkube.Client, kubeflow_user_profile_a: str
+    juju: jubilant.Juju,
+    lightkube_client: lightkube.Client,
+    kubeflow_user_profile_a: str,
+    kubeflow_user_profile_b: str,
 ):
     """Remove the integration between kubeflow integrator and spark integration hub, and see that if the resources are removed."""
     logger.info("Removing integration between kubeflow integrator and spark integration hub...")
@@ -844,6 +847,7 @@ def test_remove_resource_dispatcher_relations(
     juju: jubilant.Juju,
     lightkube_client: lightkube.Client,
     kubeflow_user_profile_a: str,
+    kubeflow_user_profile_b: str,
     relation_name: str,
     resource_class: Type,
     resource_names: list[str],
