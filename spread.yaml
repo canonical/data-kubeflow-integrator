@@ -82,12 +82,12 @@ backends:
       EOF
 
       sudo systemctl daemon-reload
-      sudo systemctl start ssh
+      sudo systemctl restart ssh
 
       # Needed for IS-hosted runners
       sudo passwd --delete "$USER"
 
-      ADDRESS localhost
+      ADDRESS "127.0.0.1"
     # HACK: spread does not pass environment variables set on runner
     # Manually pass specific environment variables
     environment:
