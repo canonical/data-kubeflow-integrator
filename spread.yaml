@@ -92,7 +92,7 @@ backends:
     # Manually pass specific environment variables
     environment:
       CI: '$(HOST: echo $CI)'
-      CHARM_UBUNTU_BASE: '$(HOST: echo $CHARM_UBUNTU_BASE)'
+      CHARM_UBUNTU_BASE: '$(HOST: echo ${CHARM_UBUNTU_BASE:-24.04})'
       DOCKERHUB_MIRROR: '$(HOST: echo $DOCKERHUB_MIRROR)'
       CONCIERGE_MICROK8S_CHANNEL: 1.34-strict/stable
     systems:
@@ -122,13 +122,12 @@ prepare: |
 
     snap install microk8s --channel "$CONCIERGE_MICROK8S_CHANNEL" --classic
 
-    # Wait for microk8s to populate iptables
-    # https://chat.canonical.com/canonical/pl/jo5cg6wqjjrudqd5ybj6hhttee
-    until [[ -n $(iptables --list | grep -i "microk8s") ]]
-    do
-      echo "MicroK8s has not yet configured iptables."
-      sleep 10
-    done
+    # Ensure the apiserver is fully ready before Juju bootstrap.
+    microk8s status --wait-ready
+
+    # Required for Juju bootstrap on strict microk8s runners.
+    microk8s enable hostpath-storage rbac
+    microk8s status --wait-ready
 
     tee /var/snap/microk8s/current/args/certs.d/docker.io/hosts.toml << EOF
     server = "$DOCKERHUB_MIRROR"
@@ -137,6 +136,7 @@ prepare: |
   EOF
     microk8s stop
     microk8s start
+    microk8s status --wait-ready
   fi
 
   # Install charmcraft & pipx (on lxd-vm backend)
