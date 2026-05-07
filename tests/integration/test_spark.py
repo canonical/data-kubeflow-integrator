@@ -927,7 +927,7 @@ def test_block_change_in_profile_config_while_relation_is_active(juju: jubilant.
         {"profile": "*"},
     )
     juju.wait(
-        lambda status: jubilant.active(status, KUBEFLOW_INTEGRATOR)
+        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
         and jubilant.all_agents_idle(status),
         delay=5,
     )
@@ -953,7 +953,7 @@ def test_block_change_in_service_account_config_while_relation_is_active(juju: j
         {"spark-service-account": SPARK_SERVICE_ACCOUNT_CONFIG_VALUE},
     )
     juju.wait(
-        lambda status: jubilant.active(status, KUBEFLOW_INTEGRATOR)
+        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
         and jubilant.all_agents_idle(status),
         delay=5,
     )
