@@ -80,19 +80,3 @@ jobs:
     secrets: inherit
     permissions:
       contents: write # Needed for Allure Report
-
-
-  release:
-    name: Release charm
-    needs:
-      - lint
-      - unit-test
-      - build
-    uses: canonical/data-platform-workflows/.github/workflows/release_charm_pr.yaml@v32.1.0
-    with:
-      track: "1"
-      artifact-prefix: ${{ needs.build.outputs.artifact-prefix }}
-    secrets:
-      charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
-    permissions:
-      contents: write  # Needed to create git tags

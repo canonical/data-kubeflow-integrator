@@ -214,7 +214,6 @@ def test_deploy_resource_dispatcher_setup(juju: jubilant.Juju):
     juju.deploy(
         RESOURCE_DISPATCHER,
         channel=RESOURCE_DISPATCHER_CHANNEL,
-        revision=557,  # TODO: Unpin the revision once released to latest/edge channel
         trust=True,
     )
     juju.wait(
