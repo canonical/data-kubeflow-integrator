@@ -132,9 +132,8 @@ def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integr
         },
     )
     status = juju.wait(
-        lambda status: (
-            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
     assert "Missing relation with: Spark" in status.apps[KUBEFLOW_INTEGRATOR].app_status.message
@@ -150,11 +149,9 @@ def test_integrate_with_spark_integration_hub(juju: jubilant.Juju):
         trust=True,
     )
     juju.wait(
-        lambda status: (
-            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-            and jubilant.all_active(status, SPARK_INTEGRATION_HUB)
-            and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_active(status, SPARK_INTEGRATION_HUB)
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
 
@@ -312,9 +309,9 @@ def test_resource_dispatcher_relations(
                 and res.metadata.name in resource_names
                 and res.metadata.namespace == kubeflow_user_profile_a
             ]
-            assert len(matching_res) == count, (
-                f"Expected exactly {count} matching {resource_type} after relation is created."
-            )
+            assert (
+                len(matching_res) == count
+            ), f"Expected exactly {count} matching {resource_type} after relation is created."
 
     # Assert the resource manifests are not there for user profile B, even after relation (because profile B is not the active profile)
     res_after_relation = list(lightkube_client.list(resource_class, namespace=ALL_NS))
@@ -495,9 +492,9 @@ def test_read_spark_config_using_spark_client(kubeflow_user_profile_a: str):
         capture_output=True,
         text=True,
     )
-    assert process.returncode == 0, (
-        f"spark-client.service-account-registry get-config command failed with error: {process.stderr}"
-    )
+    assert (
+        process.returncode == 0
+    ), f"spark-client.service-account-registry get-config command failed with error: {process.stderr}"
     output = process.stdout.strip().splitlines()
     assert "spark.dynamicAllocation.enabled=true" in output
     assert "spark.dynamicAllocation.minExecutors=1" in output
@@ -538,9 +535,9 @@ def test_run_spark_job_using_spark_client(
         capture_output=True,
         text=True,
     )
-    assert process.returncode == 0, (
-        f"spark-client.spark-submit command failed with error: {process.stderr}"
-    )
+    assert (
+        process.returncode == 0
+    ), f"spark-client.spark-submit command failed with error: {process.stderr}"
 
     pods_after_spark_job = lightkube_client.list(Pod, namespace=kubeflow_user_profile_a)
     driver_pods_after_spark_job = [
@@ -552,19 +549,17 @@ def test_run_spark_job_using_spark_client(
         and pod.metadata.name.endswith("-driver")
     ]
     new_driver_pods = set(driver_pods_after_spark_job) - set(driver_pods_before_spark_job)
-    assert len(new_driver_pods) == 1, (
-        "Expected exactly one new Spark driver pod after submitting the Spark job."
-    )
+    assert (
+        len(new_driver_pods) == 1
+    ), "Expected exactly one new Spark driver pod after submitting the Spark job."
     spark_driver_pod_name = new_driver_pods.pop()
 
     driver_pod_logs = list(
         lightkube_client.log(spark_driver_pod_name, namespace=kubeflow_user_profile_a)
     )
-    assert any("Pi is roughly 3.14" in line for line in driver_pod_logs), (
-        "Expected to find 'Pi is roughly 3.14' in Spark driver pod logs."
-    )
-
-
+    assert any(
+        "Pi is roughly 3.14" in line for line in driver_pod_logs
+    ), "Expected to find 'Pi is roughly 3.14' in Spark driver pod logs."
 def test_remove_spark_integration_hub_integration(
     juju: jubilant.Juju,
     lightkube_client: lightkube.Client,
@@ -575,17 +570,15 @@ def test_remove_spark_integration_hub_integration(
     logger.info("Removing integration between kubeflow integrator and spark integration hub...")
     juju.remove_relation(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
     juju.wait(
-        lambda status: (
-            jubilant.all_active(
-                status,
-                SPARK_INTEGRATION_HUB,
-                RESOURCE_DISPATCHER,
-                ADMISSION_WEBHOOK,
-                METACONTROLLER_CHARM,
-            )
-            and jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-            and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_active(
+            status,
+            SPARK_INTEGRATION_HUB,
+            RESOURCE_DISPATCHER,
+            ADMISSION_WEBHOOK,
+            METACONTROLLER_CHARM,
+        )
+        and jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
 
@@ -628,17 +621,15 @@ def test_remove_spark_integration_hub_integration(
     logger.info("Integrating kubeflow integrator and spark integration hub again...")
     juju.integrate(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
     juju.wait(
-        lambda status: (
-            jubilant.all_active(
-                status,
-                SPARK_INTEGRATION_HUB,
-                RESOURCE_DISPATCHER,
-                ADMISSION_WEBHOOK,
-                METACONTROLLER_CHARM,
-                KUBEFLOW_INTEGRATOR,
-            )
-            and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_active(
+            status,
+            SPARK_INTEGRATION_HUB,
+            RESOURCE_DISPATCHER,
+            ADMISSION_WEBHOOK,
+            METACONTROLLER_CHARM,
+            KUBEFLOW_INTEGRATOR,
+        )
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
 
@@ -695,17 +686,15 @@ def test_remove_resource_dispatcher_relations(
         f"{RESOURCE_DISPATCHER}:{relation_name}",
     )
     juju.wait(
-        lambda status: (
-            jubilant.all_active(
-                status,
-                SPARK_INTEGRATION_HUB,
-                RESOURCE_DISPATCHER,
-                ADMISSION_WEBHOOK,
-                METACONTROLLER_CHARM,
-                KUBEFLOW_INTEGRATOR,
-            )
-            and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_active(
+            status,
+            SPARK_INTEGRATION_HUB,
+            RESOURCE_DISPATCHER,
+            ADMISSION_WEBHOOK,
+            METACONTROLLER_CHARM,
+            KUBEFLOW_INTEGRATOR,
+        )
+        and jubilant.all_agents_idle(status),
         delay=3,
     )
     for attempt in Retrying(
@@ -748,9 +737,8 @@ def test_block_change_in_profile_config_while_relation_is_active(juju: jubilant.
     logger.info("Changing profile config option...")
     juju.config(KUBEFLOW_INTEGRATOR, {"profile": "new-profile"})
     status = juju.wait(
-        lambda status: (
-            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
     assert (
@@ -764,9 +752,8 @@ def test_block_change_in_profile_config_while_relation_is_active(juju: jubilant.
         {"profile": "*"},
     )
     juju.wait(
-        lambda status: (
-            jubilant.all_active(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
 
@@ -776,9 +763,8 @@ def test_block_change_in_service_account_config_while_relation_is_active(juju: j
     logger.info("Changing spark-service-account config option...")
     juju.config(KUBEFLOW_INTEGRATOR, {"spark-service-account": "new-spark-sa"})
     status = juju.wait(
-        lambda status: (
-            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
     assert (
@@ -792,8 +778,7 @@ def test_block_change_in_service_account_config_while_relation_is_active(juju: j
         {"spark-service-account": SPARK_SERVICE_ACCOUNT_CONFIG_VALUE},
     )
     juju.wait(
-        lambda status: (
-            jubilant.all_active(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
-        ),
+        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
         delay=5,
     )
