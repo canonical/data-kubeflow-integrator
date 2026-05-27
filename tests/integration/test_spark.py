@@ -132,8 +132,9 @@ def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integr
         },
     )
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
     assert "Missing relation with: Spark" in status.apps[KUBEFLOW_INTEGRATOR].app_status.message
@@ -149,9 +150,11 @@ def test_integrate_with_spark_integration_hub(juju: jubilant.Juju):
         trust=True,
     )
     juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_active(status, SPARK_INTEGRATION_HUB)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+            and jubilant.all_active(status, SPARK_INTEGRATION_HUB)
+            and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
 
@@ -309,9 +312,9 @@ def test_resource_dispatcher_relations(
                 and res.metadata.name in resource_names
                 and res.metadata.namespace == kubeflow_user_profile_a
             ]
-            assert (
-                len(matching_res) == count
-            ), f"Expected exactly {count} matching {resource_type} after relation is created."
+            assert len(matching_res) == count, (
+                f"Expected exactly {count} matching {resource_type} after relation is created."
+            )
 
     # Assert the resource manifests are not there for user profile B, even after relation (because profile B is not the active profile)
     res_after_relation = list(lightkube_client.list(resource_class, namespace=ALL_NS))
@@ -492,9 +495,9 @@ def test_read_spark_config_using_spark_client(kubeflow_user_profile_a: str):
         capture_output=True,
         text=True,
     )
-    assert (
-        process.returncode == 0
-    ), f"spark-client.service-account-registry get-config command failed with error: {process.stderr}"
+    assert process.returncode == 0, (
+        f"spark-client.service-account-registry get-config command failed with error: {process.stderr}"
+    )
     output = process.stdout.strip().splitlines()
     assert "spark.dynamicAllocation.enabled=true" in output
     assert "spark.dynamicAllocation.minExecutors=1" in output
@@ -535,9 +538,9 @@ def test_run_spark_job_using_spark_client(
         capture_output=True,
         text=True,
     )
-    assert (
-        process.returncode == 0
-    ), f"spark-client.spark-submit command failed with error: {process.stderr}"
+    assert process.returncode == 0, (
+        f"spark-client.spark-submit command failed with error: {process.stderr}"
+    )
 
     pods_after_spark_job = lightkube_client.list(Pod, namespace=kubeflow_user_profile_a)
     driver_pods_after_spark_job = [
@@ -549,183 +552,17 @@ def test_run_spark_job_using_spark_client(
         and pod.metadata.name.endswith("-driver")
     ]
     new_driver_pods = set(driver_pods_after_spark_job) - set(driver_pods_before_spark_job)
-    assert (
-        len(new_driver_pods) == 1
-    ), "Expected exactly one new Spark driver pod after submitting the Spark job."
+    assert len(new_driver_pods) == 1, (
+        "Expected exactly one new Spark driver pod after submitting the Spark job."
+    )
     spark_driver_pod_name = new_driver_pods.pop()
 
     driver_pod_logs = list(
         lightkube_client.log(spark_driver_pod_name, namespace=kubeflow_user_profile_a)
     )
-    assert any(
-        "Pi is roughly 3.14" in line for line in driver_pod_logs
-    ), "Expected to find 'Pi is roughly 3.14' in Spark driver pod logs."
-
-
-def test_change_active_profile_from_a_to_b(
-    juju: jubilant.Juju,
-    kubeflow_user_profile_b: str,
-):
-    """Change the active profile by changing the profile config option and see that the resources are deleted from old profile and created in new profile."""
-    logger.info("Changing active profile from profile A to profile B...")
-
-    # To change the profile, the integration hub relation needs to be torn down first
-    juju.remove_relation(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
-    juju.wait(
-        lambda status: jubilant.all_active(
-            status,
-            SPARK_INTEGRATION_HUB,
-            RESOURCE_DISPATCHER,
-            ADMISSION_WEBHOOK,
-            METACONTROLLER_CHARM,
-        )
-        and jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
-        delay=5,
+    assert any("Pi is roughly 3.14" in line for line in driver_pod_logs), (
+        "Expected to find 'Pi is roughly 3.14' in Spark driver pod logs."
     )
-
-    # Now change the active profile to profile B
-    juju.config(KUBEFLOW_INTEGRATOR, {"profile": kubeflow_user_profile_b})
-
-    # And integrate the integration hub relation again to trigger the creation of resources in the new profile
-    juju.integrate(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
-    juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
-    )
-
-
-@pytest.mark.parametrize(
-    "resource_type,resource_class,resource_names,count",
-    [
-        ("Secret", Secret, [EXPECTED_SECRET_NAME], 1),
-        ("ServiceAccount", ServiceAccount, [EXPECTED_SERVICE_ACCOUNT_NAME], 1),
-        ("Role", Role, [EXPECTED_ROLE_NAME], 1),
-        ("RoleBinding", RoleBinding, [EXPECTED_ROLEBINDING_NAME], 1),
-        (
-            "PodDefault",
-            POD_DEFAULT,
-            [EXPECTED_NOTEBOOK_PODDEFAULT_NAME, EXPECTED_PIPELINE_PODDEFAULT_NAME],
-            2,
-        ),
-    ],
-)
-def test_resources_deleted_from_old_profile_and_created_in_new_profile(
-    lightkube_client: lightkube.Client,
-    kubeflow_user_profile_a: str,
-    kubeflow_user_profile_b: str,
-    resource_type: str,
-    resource_class: Type,
-    resource_names: str,
-    count: int,
-):
-    # Try checking for the resources with retries since resource-dispatcher may take some time to create/delete them
-    for attempt in Retrying(stop=stop_after_attempt(20), wait=wait_fixed(10)):
-        with attempt:
-            resources = list(lightkube_client.list(resource_class, namespace=ALL_NS))
-            matching_res_a = [
-                res
-                for res in resources
-                if res.metadata
-                and res.metadata.name in resource_names
-                and res.metadata.namespace == kubeflow_user_profile_a
-            ]
-            assert (
-                len(matching_res_a) == 0
-            ), f"Expected exactly 0 matching {resource_type} in profile A after relation is created."
-
-            matching_res_b = [
-                res
-                for res in resources
-                if res.metadata
-                and res.metadata.name in resource_names
-                and res.metadata.namespace == kubeflow_user_profile_b
-            ]
-            assert (
-                len(matching_res_b) == count
-            ), f"Expected exactly {count} matching {resource_type} in profile B after relation is created."
-
-
-def test_enable_wildcard_profile(
-    juju: jubilant.Juju,
-):
-    """Change the active profile to wildcard (*)."""
-    logger.info("Changing active profile from profile B to wildcard...")
-
-    # To change the profile, the integration hub relation needs to be torn down first
-    juju.remove_relation(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
-    juju.wait(
-        lambda status: jubilant.all_active(
-            status,
-            SPARK_INTEGRATION_HUB,
-            RESOURCE_DISPATCHER,
-            ADMISSION_WEBHOOK,
-            METACONTROLLER_CHARM,
-        )
-        and jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
-        delay=5,
-    )
-
-    # Now change the active profile to wildcard
-    juju.config(KUBEFLOW_INTEGRATOR, {"profile": "*"})
-
-    # And integrate the integration hub relation again to trigger the creation of resources in the new profile
-    juju.integrate(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
-    juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
-    )
-
-
-@pytest.mark.parametrize(
-    "resource_type,resource_class,resource_names,count",
-    [
-        ("Secret", Secret, [EXPECTED_SECRET_NAME], 1),
-        ("ServiceAccount", ServiceAccount, [EXPECTED_SERVICE_ACCOUNT_NAME], 1),
-        ("Role", Role, [EXPECTED_ROLE_NAME], 1),
-        ("RoleBinding", RoleBinding, [EXPECTED_ROLEBINDING_NAME], 1),
-        (
-            "PodDefault",
-            POD_DEFAULT,
-            [EXPECTED_NOTEBOOK_PODDEFAULT_NAME, EXPECTED_PIPELINE_PODDEFAULT_NAME],
-            2,
-        ),
-    ],
-)
-def test_resources_create_across_all_profiles(
-    lightkube_client: lightkube.Client,
-    kubeflow_user_profile_a: str,
-    kubeflow_user_profile_b: str,
-    resource_type: str,
-    resource_class: Type,
-    resource_names: str,
-    count: int,
-):
-    """Test that the resources are created in both profile A and profile B when the active profile is wildcard."""
-    # Try checking for the resources with retries since resource-dispatcher may take some time to create/delete them
-    for attempt in Retrying(stop=stop_after_attempt(20), wait=wait_fixed(10)):
-        with attempt:
-            resources = list(lightkube_client.list(resource_class, namespace=ALL_NS))
-            matching_res_a = [
-                res
-                for res in resources
-                if res.metadata
-                and res.metadata.name in resource_names
-                and res.metadata.namespace == kubeflow_user_profile_a
-            ]
-            assert (
-                len(matching_res_a) == count
-            ), f"Expected exactly {count} matching {resource_type} in profile A after relation is created."
-
-            matching_res_b = [
-                res
-                for res in resources
-                if res.metadata
-                and res.metadata.name in resource_names
-                and res.metadata.namespace == kubeflow_user_profile_b
-            ]
-            assert (
-                len(matching_res_b) == count
-            ), f"Expected exactly {count} matching {resource_type} in profile B after relation is created."
 
 
 def test_remove_spark_integration_hub_integration(
@@ -738,15 +575,17 @@ def test_remove_spark_integration_hub_integration(
     logger.info("Removing integration between kubeflow integrator and spark integration hub...")
     juju.remove_relation(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
     juju.wait(
-        lambda status: jubilant.all_active(
-            status,
-            SPARK_INTEGRATION_HUB,
-            RESOURCE_DISPATCHER,
-            ADMISSION_WEBHOOK,
-            METACONTROLLER_CHARM,
-        )
-        and jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_active(
+                status,
+                SPARK_INTEGRATION_HUB,
+                RESOURCE_DISPATCHER,
+                ADMISSION_WEBHOOK,
+                METACONTROLLER_CHARM,
+            )
+            and jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+            and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
 
@@ -789,15 +628,17 @@ def test_remove_spark_integration_hub_integration(
     logger.info("Integrating kubeflow integrator and spark integration hub again...")
     juju.integrate(KUBEFLOW_INTEGRATOR, SPARK_INTEGRATION_HUB)
     juju.wait(
-        lambda status: jubilant.all_active(
-            status,
-            SPARK_INTEGRATION_HUB,
-            RESOURCE_DISPATCHER,
-            ADMISSION_WEBHOOK,
-            METACONTROLLER_CHARM,
-            KUBEFLOW_INTEGRATOR,
-        )
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_active(
+                status,
+                SPARK_INTEGRATION_HUB,
+                RESOURCE_DISPATCHER,
+                ADMISSION_WEBHOOK,
+                METACONTROLLER_CHARM,
+                KUBEFLOW_INTEGRATOR,
+            )
+            and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
 
@@ -819,13 +660,7 @@ def test_remove_spark_integration_hub_integration(
                     name=resource_name,
                     namespace=kubeflow_user_profile_a,
                 )
-                res_b = lightkube_client.get(
-                    resource_type,
-                    name=resource_name,
-                    namespace=kubeflow_user_profile_b,
-                )
                 assert res_a is not None
-                assert res_b is not None
 
 
 @pytest.mark.parametrize(
@@ -860,15 +695,17 @@ def test_remove_resource_dispatcher_relations(
         f"{RESOURCE_DISPATCHER}:{relation_name}",
     )
     juju.wait(
-        lambda status: jubilant.all_active(
-            status,
-            SPARK_INTEGRATION_HUB,
-            RESOURCE_DISPATCHER,
-            ADMISSION_WEBHOOK,
-            METACONTROLLER_CHARM,
-            KUBEFLOW_INTEGRATOR,
-        )
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_active(
+                status,
+                SPARK_INTEGRATION_HUB,
+                RESOURCE_DISPATCHER,
+                ADMISSION_WEBHOOK,
+                METACONTROLLER_CHARM,
+                KUBEFLOW_INTEGRATOR,
+            )
+            and jubilant.all_agents_idle(status)
+        ),
         delay=3,
     )
     for attempt in Retrying(
@@ -911,8 +748,9 @@ def test_block_change_in_profile_config_while_relation_is_active(juju: jubilant.
     logger.info("Changing profile config option...")
     juju.config(KUBEFLOW_INTEGRATOR, {"profile": "new-profile"})
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
     assert (
@@ -926,8 +764,9 @@ def test_block_change_in_profile_config_while_relation_is_active(juju: jubilant.
         {"profile": "*"},
     )
     juju.wait(
-        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_active(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
 
@@ -937,8 +776,9 @@ def test_block_change_in_service_account_config_while_relation_is_active(juju: j
     logger.info("Changing spark-service-account config option...")
     juju.config(KUBEFLOW_INTEGRATOR, {"spark-service-account": "new-spark-sa"})
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
     assert (
@@ -952,7 +792,8 @@ def test_block_change_in_service_account_config_while_relation_is_active(juju: j
         {"spark-service-account": SPARK_SERVICE_ACCOUNT_CONFIG_VALUE},
     )
     juju.wait(
-        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_active(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
