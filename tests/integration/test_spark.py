@@ -560,6 +560,8 @@ def test_run_spark_job_using_spark_client(
     assert any(
         "Pi is roughly 3.14" in line for line in driver_pod_logs
     ), "Expected to find 'Pi is roughly 3.14' in Spark driver pod logs."
+
+
 def test_remove_spark_integration_hub_integration(
     juju: jubilant.Juju,
     lightkube_client: lightkube.Client,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2025 Ubuntu
+# Copyright 2026 Ubuntu
 # See LICENSE file for licensing details.
 
 import logging
@@ -12,8 +12,7 @@ import pytest
 import yaml
 from lightkube import ALL_NS
 from lightkube.generic_resource import create_namespaced_resource
-from lightkube.models.meta_v1 import ObjectMeta
-from lightkube.resources.core_v1 import Namespace, Secret, ServiceAccount
+from lightkube.resources.core_v1 import Secret, ServiceAccount
 from lightkube.resources.rbac_authorization_v1 import Role, RoleBinding
 from tenacity import Retrying, stop_after_attempt, wait_fixed
 
@@ -24,9 +23,6 @@ APP_NAME = METADATA["name"]
 
 KUBEFLOW_INTEGRATOR = "kubeflow-integrator"
 SPARK_SERVICE_ACCOUNT_CONFIG_VALUE = "spark"
-
-KUBEFLOW_USER_PROFILE_A = "kubeflow-profile-a"
-KUBEFLOW_USER_PROFILE_B = "kubeflow-profile-b"
 
 METACONTROLLER_CHARM = "metacontroller-operator"
 METACONTROLLER_CHARM_CHANNEL = "latest/edge"
@@ -49,64 +45,16 @@ POD_DEFAULT = create_namespaced_resource(
 )
 
 
-@pytest.fixture(scope="session")
-def lightkube_client() -> lightkube.Client:
-    client = lightkube.Client(field_manager=RESOURCE_DISPATCHER)
-    return client
-
-
-@pytest.fixture(scope="session")
-def kubeflow_user_profile_a(lightkube_client: lightkube.Client):
-    """Return a new namespace with the label user.kubeflow.org/enabled=true."""
-    namespace_name = KUBEFLOW_USER_PROFILE_A
-    namespace = Namespace(
-        metadata=ObjectMeta(
-            name=namespace_name,
-            labels={
-                "user.kubeflow.org/enabled": "true",
-                "app.kubernetes.io/part-of": "kubeflow-profile",
-            },
-        )
-    )
-    logger.info(
-        f"Creating namespace {namespace_name} with label user.kubeflow.org/enabled=true ..."
-    )
-    lightkube_client.create(namespace)
-    assert namespace.metadata
-    yield namespace.metadata.name
-    lightkube_client.delete(Namespace, name=namespace_name)
-
-
-@pytest.fixture(scope="session")
-def kubeflow_user_profile_b(lightkube_client: lightkube.Client):
-    """Return a new namespace with the label user.kubeflow.org/enabled=true."""
-    namespace_name = KUBEFLOW_USER_PROFILE_B
-    namespace = Namespace(
-        metadata=ObjectMeta(
-            name=namespace_name,
-            labels={
-                "user.kubeflow.org/enabled": "true",
-                "app.kubernetes.io/part-of": "kubeflow-profile",
-            },
-        )
-    )
-    logger.info(
-        f"Creating namespace {namespace_name} with label user.kubeflow.org/enabled=true ..."
-    )
-    lightkube_client.create(namespace)
-    assert namespace.metadata
-    yield namespace.metadata.name
-    lightkube_client.delete(Namespace, name=namespace_name)
-
-
-def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integrator: str):
+def test_deploy_and_configure_kf_integrator(
+    juju: jubilant.Juju, kubeflow_integrator: str, kubeflow_user_profile_a: str
+):
     """Deploy the kubeflow integrator charm and configure it for profile testing."""
     logger.info("Deploying Kubeflow Integrator charm...")
     juju.deploy(
         kubeflow_integrator,
         app=KUBEFLOW_INTEGRATOR,
         config={
-            "profile": KUBEFLOW_USER_PROFILE_A,
+            "profile": kubeflow_user_profile_a,
             "spark-service-account": SPARK_SERVICE_ACCOUNT_CONFIG_VALUE,
         },
     )
@@ -265,9 +213,9 @@ def test_resources_deleted_from_old_profile_and_created_in_new_profile(
                 and res.metadata.name in resource_names
                 and res.metadata.namespace == kubeflow_user_profile_a
             ]
-            assert len(matching_res_a) == 0, (
-                f"Expected exactly 0 matching {resource_type} in profile A after relation is created."
-            )
+            assert (
+                len(matching_res_a) == 0
+            ), f"Expected exactly 0 matching {resource_type} in profile A after relation is created."
 
             matching_res_b = [
                 res
@@ -276,9 +224,9 @@ def test_resources_deleted_from_old_profile_and_created_in_new_profile(
                 and res.metadata.name in resource_names
                 and res.metadata.namespace == kubeflow_user_profile_b
             ]
-            assert len(matching_res_b) == count, (
-                f"Expected exactly {count} matching {resource_type} in profile B after relation is created."
-            )
+            assert (
+                len(matching_res_b) == count
+            ), f"Expected exactly {count} matching {resource_type} in profile B after relation is created."
 
 
 def test_enable_wildcard_profile(
@@ -350,9 +298,9 @@ def test_resources_create_across_all_profiles(
                 and res.metadata.name in resource_names
                 and res.metadata.namespace == kubeflow_user_profile_a
             ]
-            assert len(matching_res_a) == count, (
-                f"Expected exactly {count} matching {resource_type} in profile A after relation is created."
-            )
+            assert (
+                len(matching_res_a) == count
+            ), f"Expected exactly {count} matching {resource_type} in profile A after relation is created."
 
             matching_res_b = [
                 res
@@ -361,6 +309,6 @@ def test_resources_create_across_all_profiles(
                 and res.metadata.name in resource_names
                 and res.metadata.namespace == kubeflow_user_profile_b
             ]
-            assert len(matching_res_b) == count, (
-                f"Expected exactly {count} matching {resource_type} in profile B after relation is created."
-            )
+            assert (
+                len(matching_res_b) == count
+            ), f"Expected exactly {count} matching {resource_type} in profile B after relation is created."
