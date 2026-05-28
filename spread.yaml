@@ -82,23 +82,22 @@ backends:
       EOF
 
       sudo systemctl daemon-reload
-      sudo systemctl start ssh
+      sudo systemctl restart ssh
 
       # Needed for IS-hosted runners
       sudo passwd --delete "$USER"
 
-      ADDRESS localhost
+      ADDRESS "127.0.0.1"
     # HACK: spread does not pass environment variables set on runner
     # Manually pass specific environment variables
     environment:
       CI: '$(HOST: echo $CI)'
-      CHARM_UBUNTU_BASE: '$(HOST: echo $CHARM_UBUNTU_BASE)'
+      CHARM_UBUNTU_BASE: '$(HOST: echo ${CHARM_UBUNTU_BASE:-24.04})'
       DOCKERHUB_MIRROR: '$(HOST: echo $DOCKERHUB_MIRROR)'
       CONCIERGE_MICROK8S_CHANNEL: 1.34-strict/stable
     systems:
-      - self-hosted-linux-amd64-noble-large:
+      - self-hosted-linux-amd64-jammy-large:
           username: ubuntu
-
 suites:
   tests/spread/:
     summary: General test suite
@@ -107,7 +106,7 @@ path: /root/spread_project
 
 kill-timeout: 3h
 environment:
-  PATH: $PATH:$(pipx environment --value PIPX_BIN_DIR)
+  PATH: $PATH:/root/.local/bin:/opt/pipx_bin
   CONCIERGE_JUJU_CHANNEL: 3.6/stable
   CHARM_UBUNTU_BASE: 24.04
 prepare: |
@@ -123,13 +122,13 @@ prepare: |
 
     snap install microk8s --channel "$CONCIERGE_MICROK8S_CHANNEL" --classic
 
-    # Wait for microk8s to populate iptables
-    # https://chat.canonical.com/canonical/pl/jo5cg6wqjjrudqd5ybj6hhttee
-    until [[ -n $(iptables --list | grep -i "microk8s") ]]
-    do
-      echo "MicroK8s has not yet configured iptables."
-      sleep 10
-    done
+    # Ensure the apiserver is fully ready before Juju bootstrap.
+    microk8s status --wait-ready
+
+    # Required for Juju bootstrap on strict microk8s runners.
+    microk8s enable hostpath-storage rbac
+    microk8s status --wait-ready
+    microk8s kubectl get nodes -o wide
 
     tee /var/snap/microk8s/current/args/certs.d/docker.io/hosts.toml << EOF
     server = "$DOCKERHUB_MIRROR"
@@ -138,12 +137,15 @@ prepare: |
   EOF
     microk8s stop
     microk8s start
+    microk8s status --wait-ready
+    microk8s kubectl get nodes -o wide
   fi
 
   # Install charmcraft & pipx (on lxd-vm backend)
   concierge prepare --trace
 
-  pipx install tox poetry
+  pipx install tox
+  pipx install poetry
 prepare-each: |
   cd "$SPREAD_PATH"
   if [[ $SPREAD_VARIANT == *"juju29"* ]]

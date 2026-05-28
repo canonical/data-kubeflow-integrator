@@ -29,9 +29,11 @@ METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 APP_NAME = METADATA["name"]
 
 KUBEFLOW_INTEGRATOR = "kubeflow-integrator"
-PROFILE_CONFIG_VALUE = "testing"
 SPARK_SERVICE_ACCOUNT_CONFIG_VALUE = "spark"
 KUBEFLOW_SPARK_RELATION_NAME = "spark"
+
+KUBEFLOW_USER_PROFILE_A = "kubeflow-profile-a"
+KUBEFLOW_USER_PROFILE_B = "kubeflow-profile-b"
 
 METACONTROLLER_CHARM = "metacontroller-operator"
 METACONTROLLER_CHARM_CHANNEL = "latest/edge"
@@ -75,9 +77,31 @@ def lightkube_client() -> lightkube.Client:
 
 
 @pytest.fixture(scope="session")
-def kubeflow_enabled_namespace(lightkube_client: lightkube.Client):
+def kubeflow_user_profile_a(lightkube_client: lightkube.Client):
     """Return a new namespace with the label user.kubeflow.org/enabled=true."""
-    namespace_name = "kubeflow-enabled-namespace"
+    namespace_name = KUBEFLOW_USER_PROFILE_A
+    namespace = Namespace(
+        metadata=ObjectMeta(
+            name=namespace_name,
+            labels={
+                "user.kubeflow.org/enabled": "true",
+                "app.kubernetes.io/part-of": "kubeflow-profile",
+            },
+        )
+    )
+    logger.info(
+        f"Creating namespace {namespace_name} with label user.kubeflow.org/enabled=true ..."
+    )
+    lightkube_client.create(namespace)
+    assert namespace.metadata
+    yield namespace.metadata.name
+    lightkube_client.delete(Namespace, name=namespace_name)
+
+
+@pytest.fixture(scope="session")
+def kubeflow_user_profile_b(lightkube_client: lightkube.Client):
+    """Return a new namespace with the label user.kubeflow.org/enabled=true."""
+    namespace_name = KUBEFLOW_USER_PROFILE_B
     namespace = Namespace(
         metadata=ObjectMeta(
             name=namespace_name,
@@ -103,7 +127,7 @@ def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integr
         kubeflow_integrator,
         app=KUBEFLOW_INTEGRATOR,
         config={
-            "profile": PROFILE_CONFIG_VALUE,
+            "profile": KUBEFLOW_USER_PROFILE_A,
             "spark-service-account": SPARK_SERVICE_ACCOUNT_CONFIG_VALUE,
         },
     )
@@ -157,23 +181,28 @@ def test_resource_manifest_in_integration_hub_relation(juju: jubilant.Juju):
         for res in resources
         if res["kind"] == "Secret"
         and res["metadata"]["name"] == f"integrator-hub-conf-{SPARK_SERVICE_ACCOUNT_CONFIG_VALUE}"
+        and res["metadata"]["namespace"] == KUBEFLOW_USER_PROFILE_A
     )
     assert any(
         res
         for res in resources
         if res["kind"] == "ServiceAccount"
         and res["metadata"]["name"] == SPARK_SERVICE_ACCOUNT_CONFIG_VALUE
+        and res["metadata"]["namespace"] == KUBEFLOW_USER_PROFILE_A
     )
     assert any(
         res
         for res in resources
-        if res["kind"] == "Role" and res["metadata"]["name"] == EXPECTED_ROLE_NAME
+        if res["kind"] == "Role"
+        and res["metadata"]["name"] == EXPECTED_ROLE_NAME
+        and res["metadata"]["namespace"] == KUBEFLOW_USER_PROFILE_A
     )
     assert any(
         res
         for res in resources
         if res["kind"] == "RoleBinding"
         and res["metadata"]["name"] == f"{SPARK_SERVICE_ACCOUNT_CONFIG_VALUE}-role-binding"
+        and res["metadata"]["namespace"] == KUBEFLOW_USER_PROFILE_A
     )
 
 
@@ -211,19 +240,29 @@ def test_deploy_resource_dispatcher_setup(juju: jubilant.Juju):
 def test_resource_dispatcher_relations(
     juju: jubilant.Juju,
     lightkube_client: lightkube.Client,
-    kubeflow_enabled_namespace: str,
+    kubeflow_user_profile_a: str,
+    kubeflow_user_profile_b: str,
     relation_name: str,
     resource_type: str,
     resource_class: Type,
-    resource_names: str,
+    resource_names: list,
     count: int,
 ):
     """Integrate the kubeflow integrator with resource dispatcher over the various relations and check that the resources are created."""
     res_before_relation: list = list(lightkube_client.list(resource_class, namespace=ALL_NS))
+    # Assert the resource manifests are not there for user profile A
     assert not any(
         res.metadata
         and res.metadata.name in resource_names
-        and res.metadata.namespace == kubeflow_enabled_namespace
+        and res.metadata.namespace == kubeflow_user_profile_a
+        for res in res_before_relation
+    )
+
+    # Assert the resource manifests are not there for user profile B
+    assert not any(
+        res.metadata
+        and res.metadata.name in resource_names
+        and res.metadata.namespace == kubeflow_user_profile_b
         for res in res_before_relation
     )
 
@@ -268,28 +307,37 @@ def test_resource_dispatcher_relations(
                 for res in res_after_relation
                 if res.metadata
                 and res.metadata.name in resource_names
-                and res.metadata.namespace == kubeflow_enabled_namespace
+                and res.metadata.namespace == kubeflow_user_profile_a
             ]
             assert (
                 len(matching_res) == count
             ), f"Expected exactly {count} matching {resource_type} after relation is created."
 
+    # Assert the resource manifests are not there for user profile B, even after relation (because profile B is not the active profile)
+    res_after_relation = list(lightkube_client.list(resource_class, namespace=ALL_NS))
+    assert not any(
+        res.metadata
+        and res.metadata.name in resource_names
+        and res.metadata.namespace == kubeflow_user_profile_b
+        for res in res_after_relation
+    )
+
 
 def test_rolebinding_subject_properly_applied(
-    kubeflow_enabled_namespace: str, lightkube_client: lightkube.Client
+    kubeflow_user_profile_a: str, lightkube_client: lightkube.Client
 ):
     """Test that the RoleBinding created has the proper subject pointing to the correct ServiceAccount in correct namespace."""
     spark_role_binding = lightkube_client.get(
         RoleBinding,
         name=EXPECTED_ROLEBINDING_NAME,
-        namespace=kubeflow_enabled_namespace,
+        namespace=kubeflow_user_profile_a,
     )
     assert spark_role_binding.subjects is not None
     assert len(spark_role_binding.subjects) == 1
     subject = spark_role_binding.subjects[0]
     assert subject.kind == "ServiceAccount"
     assert subject.name == SPARK_SERVICE_ACCOUNT_CONFIG_VALUE
-    assert subject.namespace == kubeflow_enabled_namespace
+    assert subject.namespace == kubeflow_user_profile_a
 
 
 @pytest.mark.parametrize(
@@ -300,17 +348,19 @@ def test_rolebinding_subject_properly_applied(
     ],
 )
 def test_pod_default_gets_applied(
-    kubeflow_enabled_namespace: str,
+    kubeflow_user_profile_a: str,
+    kubeflow_user_profile_b: str,
     lightkube_client: lightkube.Client,
     pod_name: str,
     selector_label: str,
 ):
     """Test that the PodDefault created by the kubeflow integrator is properly applied to a pod with the matching selector label."""
+    # Create pod in profile A
     lightkube_client.create(
         Pod(
             metadata=ObjectMeta(
                 name=pod_name,
-                namespace=kubeflow_enabled_namespace,
+                namespace=kubeflow_user_profile_a,
                 labels={selector_label: "true"},
             ),
             spec=PodSpec(
@@ -331,7 +381,7 @@ def test_pod_default_gets_applied(
             notebook_pod = lightkube_client.get(
                 Pod,
                 name=pod_name,
-                namespace=kubeflow_enabled_namespace,
+                namespace=kubeflow_user_profile_a,
             )
             assert notebook_pod.spec is not None
             container = notebook_pod.spec.containers[0]
@@ -368,13 +418,41 @@ def test_pod_default_gets_applied(
                     == f"{SPARK_DRIVER_PORT},{SPARK_BLOCK_MANAGER_PORT}"
                 )
 
+    # Create pod in profile B
+    lightkube_client.create(
+        Pod(
+            metadata=ObjectMeta(
+                name=pod_name,
+                namespace=kubeflow_user_profile_b,
+                labels={selector_label: "true"},
+            ),
+            spec=PodSpec(
+                containers=[
+                    Container(
+                        name="nginx",
+                        image="nginx:latest",
+                    )
+                ]
+            ),
+        )
+    )
+
+    notebook_pod = lightkube_client.get(
+        Pod,
+        name=pod_name,
+        namespace=kubeflow_user_profile_b,
+    )
+    assert notebook_pod.spec is not None
+    container = notebook_pod.spec.containers[0]
+    assert container.env is None or len(container.env) == 0
+
 
 def test_change_in_spark_properties_reflected(
-    juju: jubilant.Juju, lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str
+    juju: jubilant.Juju, lightkube_client: lightkube.Client, kubeflow_user_profile_a: str
 ):
     """Test that a change in Spark properties by changing an config option integration hub is reflected all the way to the K8s resources."""
     secret_before_changes = lightkube_client.get(
-        Secret, name=EXPECTED_SECRET_NAME, namespace=kubeflow_enabled_namespace
+        Secret, name=EXPECTED_SECRET_NAME, namespace=kubeflow_user_profile_a
     )
     spark_properties_before_changes = secret_before_changes.data
     assert spark_properties_before_changes is None
@@ -386,7 +464,7 @@ def test_change_in_spark_properties_reflected(
     )
 
     secret_after_changes = lightkube_client.get(
-        Secret, name=EXPECTED_SECRET_NAME, namespace=kubeflow_enabled_namespace
+        Secret, name=EXPECTED_SECRET_NAME, namespace=kubeflow_user_profile_a
     )
     spark_properties_after_changes = secret_after_changes.data
     assert spark_properties_after_changes is not None
@@ -399,7 +477,7 @@ def test_change_in_spark_properties_reflected(
     assert decoded_spark_properties["spark.dynamicAllocation.shuffleTracking.enabled"] == "true"
 
 
-def test_read_spark_config_using_spark_client(kubeflow_enabled_namespace: str):
+def test_read_spark_config_using_spark_client(kubeflow_user_profile_a: str):
     """Test that we can read the spark config using a spark-client snap."""
     logger.info("Reading Spark properties using spark-client snap...")
     process = subprocess.run(
@@ -407,7 +485,7 @@ def test_read_spark_config_using_spark_client(kubeflow_enabled_namespace: str):
             "spark-client.service-account-registry",
             "get-config",
             "--namespace",
-            kubeflow_enabled_namespace,
+            kubeflow_user_profile_a,
             "--username",
             SPARK_SERVICE_ACCOUNT_CONFIG_VALUE,
         ],
@@ -424,10 +502,10 @@ def test_read_spark_config_using_spark_client(kubeflow_enabled_namespace: str):
 
 
 def test_run_spark_job_using_spark_client(
-    lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str
+    lightkube_client: lightkube.Client, kubeflow_user_profile_a: str
 ):
     """Test that we can run a spark job using the spark-client snap and the created service account."""
-    pods_before_spark_job = lightkube_client.list(Pod, namespace=kubeflow_enabled_namespace)
+    pods_before_spark_job = lightkube_client.list(Pod, namespace=kubeflow_user_profile_a)
     driver_pods_before_spark_job = [
         pod.metadata.name
         for pod in pods_before_spark_job
@@ -442,7 +520,7 @@ def test_run_spark_job_using_spark_client(
         [
             "spark-client.spark-submit",
             "--namespace",
-            kubeflow_enabled_namespace,
+            kubeflow_user_profile_a,
             "--username",
             SPARK_SERVICE_ACCOUNT_CONFIG_VALUE,
             "--class",
@@ -461,7 +539,7 @@ def test_run_spark_job_using_spark_client(
         process.returncode == 0
     ), f"spark-client.spark-submit command failed with error: {process.stderr}"
 
-    pods_after_spark_job = lightkube_client.list(Pod, namespace=kubeflow_enabled_namespace)
+    pods_after_spark_job = lightkube_client.list(Pod, namespace=kubeflow_user_profile_a)
     driver_pods_after_spark_job = [
         pod.metadata.name
         for pod in pods_after_spark_job
@@ -477,7 +555,7 @@ def test_run_spark_job_using_spark_client(
     spark_driver_pod_name = new_driver_pods.pop()
 
     driver_pod_logs = list(
-        lightkube_client.log(spark_driver_pod_name, namespace=kubeflow_enabled_namespace)
+        lightkube_client.log(spark_driver_pod_name, namespace=kubeflow_user_profile_a)
     )
     assert any(
         "Pi is roughly 3.14" in line for line in driver_pod_logs
@@ -485,7 +563,10 @@ def test_run_spark_job_using_spark_client(
 
 
 def test_remove_spark_integration_hub_integration(
-    juju: jubilant.Juju, lightkube_client: lightkube.Client, kubeflow_enabled_namespace: str
+    juju: jubilant.Juju,
+    lightkube_client: lightkube.Client,
+    kubeflow_user_profile_a: str,
+    kubeflow_user_profile_b: str,
 ):
     """Remove the integration between kubeflow integrator and spark integration hub, and see that if the resources are removed."""
     logger.info("Removing integration between kubeflow integrator and spark integration hub...")
@@ -517,10 +598,21 @@ def test_remove_spark_integration_hub_integration(
         ]:
             with attempt:
                 try:
-                    res = lightkube_client.get(
+                    lightkube_client.get(
                         resource_type,
                         name=resource_name,
-                        namespace=kubeflow_enabled_namespace,
+                        namespace=kubeflow_user_profile_a,
+                    )
+                    raise AssertionError(
+                        f"Expected {resource_type} {resource_name} to be deleted, but it still exists."
+                    )
+                except ApiError:
+                    pass  # this is exactly what's expected
+                try:
+                    lightkube_client.get(
+                        resource_type,
+                        name=resource_name,
+                        namespace=kubeflow_user_profile_b,
                     )
                     raise AssertionError(
                         f"Expected {resource_type} {resource_name} to be deleted, but it still exists."
@@ -556,12 +648,12 @@ def test_remove_spark_integration_hub_integration(
             (POD_DEFAULT, EXPECTED_PIPELINE_PODDEFAULT_NAME),
         ]:
             with attempt:
-                res = lightkube_client.get(
+                res_a = lightkube_client.get(
                     resource_type,
                     name=resource_name,
-                    namespace=kubeflow_enabled_namespace,
+                    namespace=kubeflow_user_profile_a,
                 )
-                assert res is not None
+                assert res_a is not None
 
 
 @pytest.mark.parametrize(
@@ -581,7 +673,8 @@ def test_remove_spark_integration_hub_integration(
 def test_remove_resource_dispatcher_relations(
     juju: jubilant.Juju,
     lightkube_client: lightkube.Client,
-    kubeflow_enabled_namespace: str,
+    kubeflow_user_profile_a: str,
+    kubeflow_user_profile_b: str,
     relation_name: str,
     resource_class: Type,
     resource_names: list[str],
@@ -616,7 +709,21 @@ def test_remove_resource_dispatcher_relations(
                     lightkube_client.get(
                         resource_class,
                         name=resource_name,
-                        namespace=kubeflow_enabled_namespace,
+                        namespace=kubeflow_user_profile_a,
+                    )
+                    for resource_name in resource_names
+                ]
+                raise AssertionError(
+                    f"Expected {resource_class} resources to be deleted, but it still exists."
+                )
+            except ApiError:
+                pass  # this is exactly what's expected
+            try:
+                _ = [
+                    lightkube_client.get(
+                        resource_class,
+                        name=resource_name,
+                        namespace=kubeflow_user_profile_b,
                     )
                     for resource_name in resource_names
                 ]
@@ -627,7 +734,33 @@ def test_remove_resource_dispatcher_relations(
                 pass  # this is exactly what's expected
 
 
-def test_block_change_in_config_while_relation_is_active(juju: jubilant.Juju):
+def test_block_change_in_profile_config_while_relation_is_active(juju: jubilant.Juju):
+    """Test that a change in profile config option results in blocked state requiring relation recreation."""
+    logger.info("Changing profile config option...")
+    juju.config(KUBEFLOW_INTEGRATOR, {"profile": "new-profile"})
+    status = juju.wait(
+        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
+        delay=5,
+    )
+    assert (
+        "Change in 'profile' requires relation 'spark' to be recreated"
+        in status.apps[KUBEFLOW_INTEGRATOR].app_status.message
+    )
+
+    logger.info("Reset back profile config option...")
+    juju.config(
+        KUBEFLOW_INTEGRATOR,
+        {"profile": "*"},
+    )
+    juju.wait(
+        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
+        delay=5,
+    )
+
+
+def test_block_change_in_service_account_config_while_relation_is_active(juju: jubilant.Juju):
     """Test that a change in spark-service-account config option results in blocked state requiring relation recreation."""
     logger.info("Changing spark-service-account config option...")
     juju.config(KUBEFLOW_INTEGRATOR, {"spark-service-account": "new-spark-sa"})
@@ -639,4 +772,15 @@ def test_block_change_in_config_while_relation_is_active(juju: jubilant.Juju):
     assert (
         "Change in 'spark-service-account' requires relation 'spark' to be recreated"
         in status.apps[KUBEFLOW_INTEGRATOR].app_status.message
+    )
+
+    logger.info("Reset back spark-service-account config option...")
+    juju.config(
+        KUBEFLOW_INTEGRATOR,
+        {"spark-service-account": SPARK_SERVICE_ACCOUNT_CONFIG_VALUE},
+    )
+    juju.wait(
+        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
+        and jubilant.all_agents_idle(status),
+        delay=5,
     )

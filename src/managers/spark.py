@@ -4,7 +4,7 @@
 
 """Manager for Spark related tasks."""
 
-from typing import Callable, cast
+from typing import cast
 
 import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import (
@@ -74,7 +74,22 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
 
         if (
             self.state.is_spark_related()
+            and self.state.profile_config
+            and self.state.active_spark_namespace
+            and self.state.active_spark_namespace != self.state.profile_config.profile
+            # Spark namespace from integration hub can never be "*" since in that case current model namespace is used.
+            and self.state.profile_config.profile != "*"
+        ):
+            status_list.append(
+                ConfigStatuses.config_change_requires_relation_recreation(
+                    config_option="profile", relation_name=SPARK_RELATION_NAME
+                )
+            )
+
+        if (
+            self.state.is_spark_related()
             and spark_config
+            and self.state.active_spark_service_account
             and self.state.active_spark_service_account != spark_config.spark_service_account
         ):
             status_list.append(
@@ -82,35 +97,41 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
                     config_option="spark-service-account", relation_name=SPARK_RELATION_NAME
                 )
             )
+
         return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
-    def _patch_rolebinding_subject_namespace(self, rolebinding: dict) -> dict:
-        """Patch the namespace of the subject in the rolebinding."""
-        if len(rolebinding.get("subjects", [])) == 0:
-            return rolebinding
+    def _patch_manifest_namespace(self, manifest: dict) -> dict:
+        """Patch the manifest to make it namespace agnostic wherever necessary.
 
-        for subject in rolebinding["subjects"]:
-            if "namespace" not in subject:
-                continue
-            subject["namespace"] = "{{ NAMESPACE }}"
+        1. If the profile is wildcard, remove the metadata.namespace field from the manifest to make it namespace agnostic.
+        2. Patch the namespace of the subject (for rolebindings) to be {{ NAMESPACE }} to make it namespace agnostic.
+        """
+        profile = self.state.profile_config.profile if self.state.profile_config else None
+        metadata = manifest.get("metadata")
 
-        return rolebinding
+        # If the profile is wildcard, remove the reference of namespace from manifest
+        if profile == "*" and isinstance(metadata, dict):
+            metadata.pop("namespace", None)
+
+        # Patch the namespace of the subject in the rolebinding to be {{ NAMESPACE }} to make it namespace agnostic
+        for subject in manifest.get("subjects", []):
+            if "namespace" in subject:
+                subject["namespace"] = "{{ NAMESPACE }}"
+
+        return manifest
 
     def filter_manifests(
         self,
         manifest_yaml: list[dict],
         kind: str,
         manifest_relation_exists: bool,
-        patch_function: Callable | None = None,
     ) -> list[KubernetesManifest]:
         """Filter the manifests of given kind from the given list of resource objects."""
         if not manifest_relation_exists:
             return []
 
         return [
-            KubernetesManifest(
-                manifest_content=yaml.dump(patch_function(res) if patch_function else res)
-            )
+            KubernetesManifest(manifest_content=yaml.dump(self._patch_manifest_namespace(res)))
             for res in manifest_yaml
             if res["kind"] == kind
         ]
@@ -151,7 +172,6 @@ class SparkManager(ManagerStatusProtocol, WithLogging):
             manifest_yaml,
             "RoleBinding",
             self.state.is_k8s_rolebindings_manifests_related(),
-            patch_function=self._patch_rolebinding_subject_namespace,
         )
 
         spark_pipeline_poddefault = generate_poddefault_manifest(

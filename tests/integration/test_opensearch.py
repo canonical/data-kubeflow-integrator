@@ -159,6 +159,11 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
         f"{OPENSEARCH_APP_NAME}:opensearch-client",
         f"{KUBEFLOW_INTEGRATOR_APP_NAME}:{OPENSEARCH_RELATION_NAME}",
     )
+    logger.info("Waiting for kubeflow-integrator to be blocked since relation is required")
+    juju.wait(
+        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+    )
 
     logger.info("Resetting 'opensearch-index-name' config option")
     # Remove opensearch-index-name config option
@@ -185,7 +190,12 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
         delay=5,
     )
 
-    assert (
-        "Missing config(s): 'opensearch-index-name'"
-        in status.apps[KUBEFLOW_INTEGRATOR_APP_NAME].app_status.message
+    assert any(
+        "Missing config(s): 'opensearch-index-name'" in message
+        for message in (
+            status.apps[KUBEFLOW_INTEGRATOR_APP_NAME].app_status.message,
+            status.apps[KUBEFLOW_INTEGRATOR_APP_NAME]
+            .units[f"{KUBEFLOW_INTEGRATOR_APP_NAME}/0"]
+            .workload_status.message,
+        )
     )

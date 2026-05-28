@@ -1,5 +1,4 @@
 juju:
-  agent-version: 3.6.9 # TODO: Unpin once Spark works on new juju release
   model-defaults:
     logging-config: <root>=INFO; unit=DEBUG
 providers:
