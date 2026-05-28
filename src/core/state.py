@@ -217,7 +217,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             return None
         parts = sa_with_namespace.split(":")
         if len(parts) != 2:
-            return None
+            raise ValueError(f"Unexpected format for service account: {sa_with_namespace}")
         _, service_account = parts
         return service_account
 
@@ -229,7 +229,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             return None
         parts = sa_with_namespace.split(":")
         if len(parts) != 2:
-            return None
+            raise ValueError(f"Unexpected format for service account: {sa_with_namespace}")
         namespace, _ = parts
         return namespace
 
