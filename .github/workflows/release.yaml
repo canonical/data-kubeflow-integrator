@@ -53,7 +53,7 @@ jobs:
           echo "${{ needs.release.outputs.charm-revisions}}" | yq ".[]" > revisions
           while read LINE; do
             echo "Promoting $LINE to 1/edge"
-            charmcraft release data-kubeflow-integrator --channel=1/edge --revision $LINE
+            charmcraft release data-kubeflow-integrator --channel=1/edge --revision=$LINE
           done < revisions
     permissions:
       actions: read  # Needed for GitHub API call to get workflow version
