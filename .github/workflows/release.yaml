@@ -27,34 +27,3 @@ jobs:
       charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
     permissions:
       contents: write  # Needed to create git tags
-
-  promote:
-    name: Parse release output
-    runs-on: ubuntu-24.04
-    needs:
-      - release
-    timeout-minutes: 5
-    steps:
-      - name: Install tools
-        run: |
-          sudo snap install yq
-
-          sudo snap install charmcraft --classic
-          charmcraft version
-
-      - name: Login to Charmhub
-        uses: canonical/charming-actions/charmcraft-login@2.6.0
-        with:
-          credentials: ${{ secrets.CHARMHUB_TOKEN }}
-
-      - name: Revision promotion
-        id: parser
-        run: |
-          echo "${{ needs.release.outputs.charm-revisions}}" | yq ".[]" > revisions
-          while read -r LINE; do
-            echo "Promoting $LINE to 1/edge"
-            charmcraft release data-kubeflow-integrator --channel=1/edge --revision="$LINE"
-          done < revisions
-    permissions:
-      actions: read  # Needed for GitHub API call to get workflow version
-      contents: write  # Needed to edit GitHub releases
