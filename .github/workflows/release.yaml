@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - track/1
 
 jobs:
   ci-tests:
@@ -13,17 +14,24 @@ jobs:
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
     permissions:
-      contents: write  # Needed for Allure Report beta
+      actions: read
+      contents: read
 
   release:
-    name: Release charm
+    strategy:
+      matrix:
+        charm: ${{ fromJSON(needs.ci-tests.outputs.charm-paths) }}
+    name: Release charm | ${{ matrix.charm }}
     needs:
       - ci-tests
-    uses: canonical/data-platform-workflows/.github/workflows/release_charm_edge.yaml@v32.1.0
+    uses: canonical/data-platform-workflows/.github/workflows/release_charm_edge.yaml@v49.0.1
     with:
-      track: "latest"
+      track: ${{ needs.ci-tests.outputs.track }}
       artifact-prefix: ${{ needs.ci-tests.outputs.artifact-prefix }}
+      path-to-charm-directory: ${{ matrix.charm }}
     secrets:
-      charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
+      charmhub-token: ${{ secrets.CHARMCRAFT_CREDENTIALS }}
     permissions:
+      actions: read
       contents: write  # Needed to create git tags
+  
