@@ -60,7 +60,9 @@ jobs:
 
   lint:
     name: Lint
-    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v49.0.1
+    uses: canonical/data-platform-workflows/.github/workflows/lint_workflows.yaml@v49.0.1
+    permissions:
+      contents: read
 
   lib-check:
     name: Check libraries
