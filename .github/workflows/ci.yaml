@@ -26,7 +26,7 @@ on:
 jobs:
   get-charm-paths-track:
     name: Get charm paths and track
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       charm-paths: ${{ steps.get-charm-paths.outputs.charm-paths }}
       track: ${{ steps.determine-track.outputs.track }}
