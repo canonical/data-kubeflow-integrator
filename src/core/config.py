@@ -182,3 +182,11 @@ class SparkConfig(BaseConfigModel):
             if "spark-service-account" in data and data["spark-service-account"] is None:
                 data.pop("spark-service-account")
         return data
+
+
+class S3Config(BaseConfigModel):
+    """Model for the S3 / object storage configuration."""
+
+    default_pipeline_root: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
+        None, alias="s3-default-pipeline-root"
+    )

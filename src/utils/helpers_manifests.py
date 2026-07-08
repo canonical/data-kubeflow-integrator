@@ -6,10 +6,14 @@
 
 import base64
 
+import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import KubernetesManifest
 from jinja2 import Template
 
 from constants import (
+    ARTIFACT_REPOSITORIES_CONFIGMAP_NAME,
+    ARTIFACT_REPOSITORY_ANNOTATION,
+    ARTIFACT_REPOSITORY_REF,
     K8S_DATABASE_PODDEFAULT_DESC,
     K8S_DATABASE_PODDEFAULT_NAME,
     K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL,
@@ -17,6 +21,10 @@ from constants import (
     K8S_DATABASE_TLS_SECRET_NAME,
     K8S_TLS_MOUNTPATH,
     K8S_TLS_SECRET_VOLUME,
+    KFP_LAUNCHER_CONFIGMAP_NAME,
+    MINIO_SECRET_ACCESS_KEY,
+    MINIO_SECRET_SECRET_KEY,
+    MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
 )
 from utils.k8s_models import (
     EnvVarFromField,
@@ -142,3 +150,118 @@ def generate_poddefault_manifest(
 
     rendered = template.render(pod_default=k8s_poddefault_info)
     return KubernetesManifest(rendered)
+
+
+def _split_s3_endpoint(endpoint: str) -> tuple[str, bool]:
+    """Split an S3 endpoint into a ``(host[:port], secure)`` tuple based on its scheme.
+
+    Defaults to non-secure (plain HTTP) when no scheme is present, matching the typical
+    in-cluster MinIO deployment used by Kubeflow.
+    """
+    if endpoint.startswith("https://"):
+        return endpoint[len("https://") :].rstrip("/"), True
+    if endpoint.startswith("http://"):
+        return endpoint[len("http://") :].rstrip("/"), False
+    return endpoint.rstrip("/"), False
+
+
+def _manifest_metadata(name: str, profile: str, **extra) -> dict:
+    """Build a manifest ``metadata`` block, omitting the namespace for the wildcard profile.
+
+    When the profile is the wildcard ``*``, the namespace is left out so that the
+    ``resource-dispatcher`` charm applies the resource to every Kubeflow profile namespace.
+    """
+    metadata: dict = {"name": name}
+    if profile != "*":
+        metadata["namespace"] = profile
+    metadata.update(extra)
+    return metadata
+
+
+def generate_minio_artifact_secret_manifest(
+    profile: str, access_key: str, secret_key: str
+) -> KubernetesManifest:
+    """Generate the ``mlpipeline-minio-artifact`` Secret manifest for a profile."""
+    manifest = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": _manifest_metadata(MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME, profile),
+        "type": "Opaque",
+        "data": {
+            MINIO_SECRET_ACCESS_KEY: base64.b64encode(access_key.encode()).decode("utf-8"),
+            MINIO_SECRET_SECRET_KEY: base64.b64encode(secret_key.encode()).decode("utf-8"),
+        },
+    }
+    return KubernetesManifest(yaml.dump(manifest))
+
+
+def generate_artifact_repositories_configmap_manifest(
+    profile: str, bucket: str, endpoint: str
+) -> KubernetesManifest:
+    """Generate the argo ``artifact-repositories`` ConfigMap manifest for a profile."""
+    host, secure = _split_s3_endpoint(endpoint)
+    repository = {
+        "archiveLogs": True,
+        "s3": {
+            "accessKeySecret": {
+                "name": MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+                "key": MINIO_SECRET_ACCESS_KEY,
+            },
+            "secretKeySecret": {
+                "name": MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+                "key": MINIO_SECRET_SECRET_KEY,
+            },
+            "bucket": bucket,
+            "endpoint": host,
+            "insecure": not secure,
+            "keyFormat": (
+                "artifacts/{{workflow.name}}/{{workflow.creationTimestamp.Y}}/"
+                "{{workflow.creationTimestamp.m}}/{{workflow.creationTimestamp.d}}/{{pod.name}}"
+            ),
+        },
+    }
+    manifest = {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": _manifest_metadata(
+            ARTIFACT_REPOSITORIES_CONFIGMAP_NAME,
+            profile,
+            annotations={ARTIFACT_REPOSITORY_ANNOTATION: ARTIFACT_REPOSITORY_REF},
+        ),
+        "data": {ARTIFACT_REPOSITORY_REF: yaml.dump(repository, default_flow_style=False)},
+    }
+    return KubernetesManifest(yaml.dump(manifest))
+
+
+def generate_kfp_launcher_configmap_manifest(
+    profile: str, bucket: str, endpoint: str, region: str | None, default_pipeline_root: str
+) -> KubernetesManifest:
+    """Generate the ``kfp-launcher`` ConfigMap manifest for a profile."""
+    host, secure = _split_s3_endpoint(endpoint)
+    providers = {
+        "s3": {
+            "default": {
+                "endpoint": host,
+                "disableSSL": not secure,
+                "region": region or "",
+                "credentials": {
+                    "fromEnv": False,
+                    "secretRef": {
+                        "secretName": MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+                        "accessKeyKey": MINIO_SECRET_ACCESS_KEY,
+                        "secretKeyKey": MINIO_SECRET_SECRET_KEY,
+                    },
+                },
+            }
+        }
+    }
+    manifest = {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": _manifest_metadata(KFP_LAUNCHER_CONFIGMAP_NAME, profile),
+        "data": {
+            "defaultPipelineRoot": default_pipeline_root,
+            "providers": yaml.dump(providers, default_flow_style=False),
+        },
+    }
+    return KubernetesManifest(yaml.dump(manifest))

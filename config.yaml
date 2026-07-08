@@ -54,4 +54,11 @@ options:
     type: string
     default:
     description: The service account name to use with Spark jobs.
+  s3-default-pipeline-root:
+    type: string
+    default:
+    description: |
+      Optional override for the `defaultPipelineRoot` of the generated `kfp-launcher` config-map.
+      When left empty, it defaults to `minio://<bucket>/v2/artifacts` using the bucket advertised
+      over the `s3-credentials` relation.
 

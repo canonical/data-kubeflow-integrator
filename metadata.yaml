@@ -34,6 +34,9 @@ requires:
   spark:
     interface: spark_service_account
     limit: 1
+  s3-credentials:
+    interface: s3
+    limit: 1
 
   # Relation with `resource-dispatcher` charm
   secrets:
@@ -45,4 +48,6 @@ requires:
   roles:
     interface: kubernetes_manifest
   role-bindings:
+    interface: kubernetes_manifest
+  config-maps:
     interface: kubernetes_manifest

@@ -10,6 +10,7 @@ MYSQL = "mysql"
 OPENSEARCH = "opensearch"
 KAFKA = "kafka"
 SPARK = "spark"
+S3 = "s3"
 
 
 OPENSEARCH_RELATION_NAME = "opensearch"
@@ -18,6 +19,7 @@ MYSQL_RELATION_NAME = "mysql"
 MONGODB_RELATION_NAME = "mongodb"
 KAFKA_RELATION_NAME = "kafka"
 SPARK_RELATION_NAME = "spark"
+S3_RELATION_NAME = "s3-credentials"
 
 STATUS_PEERS_RELATION_NAME = "status-peers"
 SECRETS_DISPATCHER_RELATION_NAME = "secrets"
@@ -25,7 +27,25 @@ SERVICE_ACCOUNTS_DISPATCHER_RELATION_NAME = "service-accounts"
 POD_DEFAULTS_DISPATCHER_RELATION_NAME = "pod-defaults"
 ROLES_DISPATCHER_RELATION_NAME = "roles"
 ROLEBINDINGS_DISPATCHER_RELATION_NAME = "role-bindings"
+CONFIGMAPS_DISPATCHER_RELATION_NAME = "config-maps"
 PEER_RELATION = "kubeflow-integrator-peers"
+
+
+# Kubeflow S3 / MinIO artifact store resources (for multi-tenancy pipelines)
+MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME = "mlpipeline-minio-artifact"
+ARTIFACT_REPOSITORIES_CONFIGMAP_NAME = "artifact-repositories"
+KFP_LAUNCHER_CONFIGMAP_NAME = "kfp-launcher"
+
+# Keys under which the MinIO credentials are stored in the artifact secret
+MINIO_SECRET_ACCESS_KEY = "accesskey"
+MINIO_SECRET_SECRET_KEY = "secretkey"
+
+# argo `artifact-repositories` config-map annotation marking the default repository
+ARTIFACT_REPOSITORY_ANNOTATION = "workflows.argoproj.io/default-artifact-repository"
+ARTIFACT_REPOSITORY_REF = "default-namespaced"
+
+# Default template used for the `kfp-launcher` defaultPipelineRoot when unset via config
+DEFAULT_PIPELINE_ROOT_TEMPLATE = "minio://{bucket}/v2/artifacts"
 
 K8S_TLS_SECRET_VOLUME = "tls-secret"
 K8S_TLS_MOUNTPATH = "/etc/data-kubeflow-integrator"
