@@ -5,7 +5,7 @@
 
 """Object representing the state of KubeflowIntegrator Charm."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseRequirerData,
@@ -16,11 +16,11 @@ from charms.data_platform_libs.v0.data_interfaces import (
     RequirerData,
 )
 from charms.data_platform_libs.v0.data_models import ValidationError
-from charms.data_platform_libs.v0.s3 import S3Requirer
 from charms.spark_integration_hub_k8s.v0.spark_service_account import (
     SparkServiceAccountRequirerData,
 )
 from data_platform_helpers.advanced_statuses.protocol import StatusesState, StatusesStateProtocol
+from object_storage import S3Requirer
 from ops import Object
 
 from constants import (
@@ -110,7 +110,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             service_account=f"{namespace}:{username}",
             skip_creation=True,
         )
-        self.s3_requirer = S3Requirer(self.charm, S3_RELATION_NAME)
+        self.s3_requirer = S3Requirer(self.charm, relation_name=S3_RELATION_NAME)
 
         self.statuses = StatusesState(self, STATUS_PEERS_RELATION_NAME)
 
@@ -249,7 +249,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
     @property
     def s3_connection_info(self) -> dict[str, str]:
         """Return the S3 credentials advertised over the s3-credentials relation."""
-        return self.s3_requirer.get_s3_connection_info()
+        return cast("dict[str, str]", self.s3_requirer.get_storage_connection_info())
 
     @property
     def active_s3_bucket(self) -> str | None:

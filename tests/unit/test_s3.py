@@ -25,6 +25,11 @@ S3_CREDENTIALS = {
     "bucket": "mlpipeline",
     "endpoint": "http://minio.kubeflow:9000",
     "region": "us-east-1",
+    # The object-storage schema version advertised by a v1 provider (s3-integrator). Without it
+    # the requirer treats the provider as v0 and withholds 'storage_connection_info_changed' until
+    # the bucket handshake completes over a second relation-changed, which a single scenario event
+    # cannot reproduce.
+    "version": "1",
 }
 
 
@@ -249,12 +254,12 @@ def test_no_s3_manifests_when_credentials_incomplete(charm_configuration: dict, 
         unit_id=0,
     )
 
-    # Missing the mandatory secret-key: the S3 lib does not emit credentials_changed and the
-    # manifests must not be generated.
+    # Missing the mandatory secret-key: the S3 lib does not emit storage_connection_info_changed
+    # and the manifests must not be generated.
     s3_relation = Relation(
         endpoint="s3-credentials",
         interface="s3",
-        remote_app_data={"access-key": "minio-access-key", "bucket": "mlpipeline"},
+        remote_app_data={"access-key": "minio-access-key", "bucket": "mlpipeline", "version": "1"},
     )
     config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
     relations = [*base_state.relations, s3_relation, config_maps_relation]
@@ -287,7 +292,11 @@ def test_no_s3_manifests_when_bucket_and_endpoint_missing(
     s3_relation = Relation(
         endpoint="s3-credentials",
         interface="s3",
-        remote_app_data={"access-key": "minio-access-key", "secret-key": "minio-secret-key"},
+        remote_app_data={
+            "access-key": "minio-access-key",
+            "secret-key": "minio-secret-key",
+            "version": "1",
+        },
     )
     config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
     relations = [*base_state.relations, s3_relation, config_maps_relation]

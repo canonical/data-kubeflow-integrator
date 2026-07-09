@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from charms.data_platform_libs.v0.s3 import (
-    CredentialsChangedEvent,
-    CredentialsGoneEvent,
+from object_storage import (
+    StorageConnectionInfoChangedEvent,
+    StorageConnectionInfoGoneEvent,
 )
 from ops import Object
 
@@ -30,18 +30,20 @@ class S3EventsHandler(Object, WithLogging):
         self.state = state
 
         self.framework.observe(
-            self.state.s3_requirer.on.credentials_changed, self._on_s3_credentials_changed
+            self.state.s3_requirer.on.storage_connection_info_changed,
+            self._on_s3_credentials_changed,
         )
         self.framework.observe(
-            self.state.s3_requirer.on.credentials_gone, self._on_s3_credentials_gone
+            self.state.s3_requirer.on.storage_connection_info_gone,
+            self._on_s3_credentials_gone,
         )
 
-    def _on_s3_credentials_changed(self, event: CredentialsChangedEvent) -> None:
+    def _on_s3_credentials_changed(self, event: StorageConnectionInfoChangedEvent) -> None:
         """Event triggered when S3 credentials are made available for this application."""
         self.logger.debug("S3 credentials are available.")
         self.charm.general_events._on_config_changed(event)
 
-    def _on_s3_credentials_gone(self, event: CredentialsGoneEvent) -> None:
+    def _on_s3_credentials_gone(self, event: StorageConnectionInfoGoneEvent) -> None:
         """Event triggered when S3 credentials are removed."""
         self.logger.debug("S3 credentials are gone.")
         self.charm.general_events._on_config_changed(event)
