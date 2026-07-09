@@ -6,11 +6,14 @@ import base64
 import json
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
 import jubilant
 import lightkube
+import pytest
 import yaml
 from helpers import get_application_data
+from helpers_s3 import S3ConnectionInfo, setup_microceph
 from lightkube.core.exceptions import ApiError
 from lightkube.resources.core_v1 import ConfigMap, Secret
 from tenacity import Retrying, stop_after_attempt, wait_fixed
@@ -34,30 +37,33 @@ S3_INTEGRATOR = "s3-integrator"
 S3_INTEGRATOR_CHANNEL = "2/edge"
 S3_CREDENTIALS_SECRET = "s3-integrator-credentials"
 
-# s3-integrator should be blocked since we're pointing to an endpoint that doesn't exist
-# so exclude it from the set of apps we want active.
-ACTIVE_APPS = (
-    KUBEFLOW_INTEGRATOR,
-    METACONTROLLER_CHARM,
-    ADMISSION_WEBHOOK,
-    RESOURCE_DISPATCHER,
-)
-
 S3_CREDENTIALS_RELATION_NAME = "s3-credentials"
 SECRETS_RELATION_NAME = "secrets"
 CONFIG_MAPS_RELATION_NAME = "config-maps"
 
-MINIO_ACCESS_KEY = "minio"
-MINIO_SECRET_KEY = "minio-secret-key"
 MINIO_BUCKET = "mlpipeline"
-MINIO_ENDPOINT = "http://sample.endpoint:9000"
-MINIO_ENDPOINT_HOST = "sample.endpoint:9000"
-MINIO_REGION = "us-east-1"
 
 EXPECTED_MINIO_SECRET_NAME = "mlpipeline-minio-artifact"
 EXPECTED_ARTIFACT_REPOSITORIES_CONFIGMAP = "artifact-repositories"
 EXPECTED_KFP_LAUNCHER_CONFIGMAP = "kfp-launcher"
 ARTIFACT_REPOSITORY_REF = "default-namespaced"
+
+
+@pytest.fixture(scope="module")
+def s3_connection_info() -> S3ConnectionInfo:
+    """Provision a real, reachable S3 backend and return its connection info.
+
+    ``s3-integrator`` validates its configuration by connecting to the endpoint and
+    ensuring the bucket exists before it shares anything over the relation, so the tests
+    need a real backend rather than a placeholder endpoint. ``setup_microceph`` provisions
+    one with microceph, or reuses an external S3 when the ``S3_*`` env vars are set.
+    """
+    return setup_microceph()
+
+
+def _endpoint_host(endpoint: str) -> str:
+    """Return the ``host[:port]`` portion of an S3 endpoint, stripping any scheme."""
+    return urlparse(endpoint if "://" in endpoint else f"//{endpoint}").netloc
 
 
 def _get_manifests_from_relation(juju: jubilant.Juju, relation_name: str) -> list[dict]:
@@ -94,24 +100,32 @@ def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integr
     )
 
 
-def test_integrate_with_s3_integrator(juju: jubilant.Juju):
+def test_integrate_with_s3_integrator(juju: jubilant.Juju, s3_connection_info: S3ConnectionInfo):
     """Deploy s3-integrator and integrate with the integrator."""
     logger.info("Deploying s3-integrator charm...")
+    config = {
+        "bucket": MINIO_BUCKET,
+        "endpoint": s3_connection_info.endpoint,
+        "region": s3_connection_info.region,
+    }
+    # A TLS-enabled endpoint (e.g. microceph's RADOS Gateway) needs its CA chain so that
+    # s3-integrator can reach the endpoint to ensure the bucket exists.
+    if s3_connection_info.tls_ca_chain:
+        config["tls-ca-chain"] = s3_connection_info.tls_ca_chain
     juju.deploy(
         S3_INTEGRATOR,
         app=S3_INTEGRATOR,
         channel=S3_INTEGRATOR_CHANNEL,
-        config={
-            "bucket": MINIO_BUCKET,
-            "endpoint": MINIO_ENDPOINT,
-            "region": MINIO_REGION,
-        },
+        config=config,
     )
 
     logger.info("Providing S3 credentials to s3-integrator via a user secret...")
     secret_uri = juju.add_secret(
         S3_CREDENTIALS_SECRET,
-        {"access-key": MINIO_ACCESS_KEY, "secret-key": MINIO_SECRET_KEY},
+        {
+            "access-key": s3_connection_info.access_key,
+            "secret-key": s3_connection_info.secret_key,
+        },
     )
     juju.grant_secret(secret_uri, S3_INTEGRATOR)
     juju.config(S3_INTEGRATOR, {"credentials": secret_uri})
@@ -121,16 +135,15 @@ def test_integrate_with_s3_integrator(juju: jubilant.Juju):
         f"{KUBEFLOW_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
         f"{S3_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
     )
-    # Do not wait for s3-integrator itself to be active: it may stay blocked if it cannot reach
-    # the configured S3 endpoint. Its agent still settles idle after sharing the connection info.
     juju.wait(
-        lambda status: jubilant.all_active(status, *ACTIVE_APPS)
-        and jubilant.all_agents_idle(status),
+        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status),
         delay=5,
     )
 
 
-def test_s3_manifests_generated_in_relation_data(juju: jubilant.Juju):
+def test_s3_manifests_generated_in_relation_data(
+    juju: jubilant.Juju, s3_connection_info: S3ConnectionInfo
+):
     """Integrate over secrets/config-maps and check the artifact-store manifests are shared."""
     logger.info("Integrating kubeflow-integrator <> resource-dispatcher over secrets...")
     juju.integrate(
@@ -143,8 +156,7 @@ def test_s3_manifests_generated_in_relation_data(juju: jubilant.Juju):
         f"{RESOURCE_DISPATCHER}:{CONFIG_MAPS_RELATION_NAME}",
     )
     juju.wait(
-        lambda status: jubilant.all_active(status, *ACTIVE_APPS)
-        and jubilant.all_agents_idle(status),
+        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status),
         delay=5,
     )
 
@@ -158,7 +170,7 @@ def test_s3_manifests_generated_in_relation_data(juju: jubilant.Juju):
     assert minio_secret[0]["metadata"]["namespace"] == KUBEFLOW_USER_PROFILE_A_NAME
     assert (
         minio_secret[0]["data"]["accesskey"]
-        == base64.b64encode(MINIO_ACCESS_KEY.encode()).decode()
+        == base64.b64encode(s3_connection_info.access_key.encode()).decode()
     )
 
     config_map_manifests = _get_manifests_from_relation(juju, CONFIG_MAPS_RELATION_NAME)
@@ -173,6 +185,7 @@ def test_s3_resources_created_in_profile_namespace(
     juju: jubilant.Juju,
     lightkube_client: lightkube.Client,
     kubeflow_user_profile_a: str,
+    s3_connection_info: S3ConnectionInfo,
 ):
     """Check that resource-dispatcher applies the artifact-store resources to the profile namespace."""
     logger.info("Checking the mlpipeline-minio-artifact Secret is created...")
@@ -183,10 +196,10 @@ def test_s3_resources_created_in_profile_namespace(
             )
             assert minio_secret.data is not None
             assert minio_secret.data["accesskey"] == base64.b64encode(
-                MINIO_ACCESS_KEY.encode()
+                s3_connection_info.access_key.encode()
             ).decode("utf-8")
             assert minio_secret.data["secretkey"] == base64.b64encode(
-                MINIO_SECRET_KEY.encode()
+                s3_connection_info.secret_key.encode()
             ).decode("utf-8")
 
     logger.info("Checking the artifact-repositories ConfigMap is created...")
@@ -208,7 +221,7 @@ def test_s3_resources_created_in_profile_namespace(
             assert artifact_repositories.data is not None
             repository = yaml.safe_load(artifact_repositories.data[ARTIFACT_REPOSITORY_REF])
             assert repository["s3"]["bucket"] == MINIO_BUCKET
-            assert repository["s3"]["endpoint"] == MINIO_ENDPOINT_HOST
+            assert repository["s3"]["endpoint"] == _endpoint_host(s3_connection_info.endpoint)
 
     logger.info("Checking the kfp-launcher ConfigMap is created...")
     for attempt in Retrying(stop=stop_after_attempt(20), wait=wait_fixed(10)):
@@ -221,8 +234,10 @@ def test_s3_resources_created_in_profile_namespace(
             assert kfp_launcher.data is not None
             assert "defaultPipelineRoot" in kfp_launcher.data
             providers = yaml.safe_load(kfp_launcher.data["providers"])
-            assert providers["s3"]["default"]["endpoint"] == MINIO_ENDPOINT_HOST
-            assert providers["s3"]["default"]["region"] == MINIO_REGION
+            assert providers["s3"]["default"]["endpoint"] == _endpoint_host(
+                s3_connection_info.endpoint
+            )
+            assert providers["s3"]["default"]["region"] == s3_connection_info.region
 
 
 def test_remove_s3_integration(

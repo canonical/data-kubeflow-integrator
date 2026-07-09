@@ -147,3 +147,7 @@ cython_debug/
 mypyhtml
 .terraform
 terraform.tfstate*
+
+# Temporary directories created by the microceph S3 test setup
+temp-certs/
+tmp/
