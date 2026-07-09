@@ -99,18 +99,6 @@ def test_integrate_with_s3_integrator(juju: jubilant.Juju):
         },
     )
 
-    logger.info("Syncing S3 credentials on s3-integrator...")
-    juju.run(
-        f"{S3_INTEGRATOR}/0",
-        "sync-s3-credentials",
-        {"access-key": MINIO_ACCESS_KEY, "secret-key": MINIO_SECRET_KEY},
-    )
-    juju.wait(
-        lambda status: jubilant.all_active(status, S3_INTEGRATOR)
-        and jubilant.all_agents_idle(status, S3_INTEGRATOR),
-        delay=5,
-    )
-
     logger.info("Integrating kubeflow-integrator with s3-integrator...")
     juju.integrate(
         f"{KUBEFLOW_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
