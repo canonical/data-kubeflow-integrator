@@ -7,11 +7,11 @@
 import base64
 from urllib.parse import urlparse
 
-import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import KubernetesManifest
 from jinja2 import Template
 
 from constants import (
+    ARTIFACT_KEY_FORMAT,
     ARTIFACT_REPOSITORIES_CONFIGMAP_NAME,
     ARTIFACT_REPOSITORY_ANNOTATION,
     ARTIFACT_REPOSITORY_REF,
@@ -169,103 +169,62 @@ def _parse_s3_endpoint(endpoint: str) -> tuple[str, bool]:
     return parsed.netloc, secure
 
 
-def _manifest_metadata(name: str, profile: str, **extra) -> dict:
-    """Build a manifest ``metadata`` block, omitting the namespace for the wildcard profile.
-
-    When the profile is the wildcard ``*``, the namespace is left out so that the
-    ``resource-dispatcher`` charm applies the resource to every Kubeflow profile namespace.
-    """
-    metadata: dict = {"name": name}
-    if profile != "*":
-        metadata["namespace"] = profile
-    metadata.update(extra)
-    return metadata
-
-
 def generate_minio_artifact_secret_manifest(
-    profile: str, access_key: str, secret_key: str
+    template: Template, profile: str, access_key: str, secret_key: str
 ) -> KubernetesManifest:
     """Generate the ``mlpipeline-minio-artifact`` Secret manifest for a profile."""
-    manifest = {
-        "apiVersion": "v1",
-        "kind": "Secret",
-        "metadata": _manifest_metadata(MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME, profile),
-        "type": "Opaque",
-        "data": {
+    secret_info = K8sSecretManifestInfo(
+        name=MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+        namespace=None if profile == "*" else profile,
+        data={
             MINIO_SECRET_ACCESS_KEY: base64.b64encode(access_key.encode()).decode("utf-8"),
             MINIO_SECRET_SECRET_KEY: base64.b64encode(secret_key.encode()).decode("utf-8"),
         },
-    }
-    return KubernetesManifest(yaml.dump(manifest))
+        labels=None,
+    )
+    rendered = template.render(secret=secret_info)
+    return KubernetesManifest(rendered)
 
 
 def generate_artifact_repositories_configmap_manifest(
-    profile: str, bucket: str, endpoint: str
+    template: Template, profile: str, bucket: str, endpoint: str
 ) -> KubernetesManifest:
     """Generate the argo ``artifact-repositories`` ConfigMap manifest for a profile."""
     host, secure = _parse_s3_endpoint(endpoint)
-    repository = {
-        "archiveLogs": True,
-        "s3": {
-            "accessKeySecret": {
-                "name": MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
-                "key": MINIO_SECRET_ACCESS_KEY,
-            },
-            "secretKeySecret": {
-                "name": MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
-                "key": MINIO_SECRET_SECRET_KEY,
-            },
-            "bucket": bucket,
-            "endpoint": host,
-            "insecure": not secure,
-            "keyFormat": (
-                "artifacts/{{workflow.name}}/{{workflow.creationTimestamp.Y}}/"
-                "{{workflow.creationTimestamp.m}}/{{workflow.creationTimestamp.d}}/{{pod.name}}"
-            ),
-        },
-    }
-    manifest = {
-        "apiVersion": "v1",
-        "kind": "ConfigMap",
-        "metadata": _manifest_metadata(
-            ARTIFACT_REPOSITORIES_CONFIGMAP_NAME,
-            profile,
-            annotations={ARTIFACT_REPOSITORY_ANNOTATION: ARTIFACT_REPOSITORY_REF},
-        ),
-        "data": {ARTIFACT_REPOSITORY_REF: yaml.dump(repository, default_flow_style=False)},
-    }
-    return KubernetesManifest(yaml.dump(manifest))
+    rendered = template.render(
+        name=ARTIFACT_REPOSITORIES_CONFIGMAP_NAME,
+        namespace=None if profile == "*" else profile,
+        annotation_key=ARTIFACT_REPOSITORY_ANNOTATION,
+        annotation_ref=ARTIFACT_REPOSITORY_REF,
+        secret_name=MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+        access_key=MINIO_SECRET_ACCESS_KEY,
+        secret_key=MINIO_SECRET_SECRET_KEY,
+        bucket=bucket,
+        endpoint=host,
+        insecure=not secure,
+        key_format=ARTIFACT_KEY_FORMAT,
+    )
+    return KubernetesManifest(rendered)
 
 
 def generate_kfp_launcher_configmap_manifest(
-    profile: str, endpoint: str, region: str | None, default_pipeline_root: str
+    template: Template,
+    profile: str,
+    endpoint: str,
+    region: str | None,
+    default_pipeline_root: str,
 ) -> KubernetesManifest:
     """Generate the ``kfp-launcher`` ConfigMap manifest for a profile."""
     host, secure = _parse_s3_endpoint(endpoint)
-    providers = {
-        "s3": {
-            "default": {
-                "endpoint": host,
-                "disableSSL": not secure,
-                "region": region or "",
-                "credentials": {
-                    "fromEnv": False,
-                    "secretRef": {
-                        "secretName": MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
-                        "accessKeyKey": MINIO_SECRET_ACCESS_KEY,
-                        "secretKeyKey": MINIO_SECRET_SECRET_KEY,
-                    },
-                },
-            }
-        }
-    }
-    manifest = {
-        "apiVersion": "v1",
-        "kind": "ConfigMap",
-        "metadata": _manifest_metadata(KFP_LAUNCHER_CONFIGMAP_NAME, profile),
-        "data": {
-            "defaultPipelineRoot": default_pipeline_root,
-            "providers": yaml.dump(providers, default_flow_style=False),
-        },
-    }
-    return KubernetesManifest(yaml.dump(manifest))
+    rendered = template.render(
+        name=KFP_LAUNCHER_CONFIGMAP_NAME,
+        namespace=None if profile == "*" else profile,
+        default_pipeline_root=default_pipeline_root,
+        endpoint=host,
+        disable_ssl=not secure,
+        region=region or "",
+        secret_name=MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+        access_key=MINIO_SECRET_ACCESS_KEY,
+        secret_key=MINIO_SECRET_SECRET_KEY,
+    )
+    return KubernetesManifest(rendered)

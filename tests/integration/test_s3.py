@@ -84,10 +84,7 @@ def test_deploy_and_configure_kf_integrator(
     juju: jubilant.Juju, kubeflow_integrator: str, kubeflow_user_profile_a: str
 ):
     """Deploy the kubeflow integrator charm and the resource-dispatcher stack."""
-    # The profile namespace must exist before the resource-dispatcher relations are
-    # integrated, otherwise resource-dispatcher processes the manifests before the
-    # namespace exists and never applies the artifact-store resources to it. Requesting
-    # ``kubeflow_user_profile_a`` here creates the namespace up front.
+    # Create the ``kubeflow_user_profile_a`` profile first
     logger.info("Deploying Kubeflow Integrator charm...")
     juju.deploy(
         kubeflow_integrator,

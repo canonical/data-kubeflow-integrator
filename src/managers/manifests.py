@@ -38,3 +38,18 @@ class KubernetesManifestsManager(WithLogging):
     def poddefault_k8s_template(self) -> Template:
         """Return template for generating kubernetes pod defaults."""
         return self.env.get_template("pod-defaults.yaml.tpl")
+
+    @property
+    def minio_artifact_secret_template(self) -> Template:
+        """Return template for the mlpipeline-minio-artifact Secret."""
+        return self.env.get_template("minio-artifact-secret.yaml.tpl")
+
+    @property
+    def artifact_repositories_template(self) -> Template:
+        """Return template for the argo artifact-repositories ConfigMap."""
+        return self.env.get_template("artifact-repositories.yaml.tpl")
+
+    @property
+    def kfp_launcher_template(self) -> Template:
+        """Return template for the kfp-launcher ConfigMap."""
+        return self.env.get_template("kfp-launcher.yaml.tpl")

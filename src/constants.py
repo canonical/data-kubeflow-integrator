@@ -44,6 +44,15 @@ MINIO_SECRET_SECRET_KEY = "secretkey"
 ARTIFACT_REPOSITORY_ANNOTATION = "workflows.argoproj.io/default-artifact-repository"
 ARTIFACT_REPOSITORY_REF = "default-namespaced"
 
+# argo `keyFormat` for the artifact-repositories config-map. Using %raw% tags since
+# resource-dispatcher renders every manifest it receives through Jinja2.
+ARTIFACT_KEY_FORMAT = (
+    "{%raw%}"
+    "artifacts/{{workflow.name}}/{{workflow.creationTimestamp.Y}}/"
+    "{{workflow.creationTimestamp.m}}/{{workflow.creationTimestamp.d}}/{{pod.name}}"
+    "{%endraw%}"
+)
+
 # Default template used for the `kfp-launcher` defaultPipelineRoot when unset via config
 DEFAULT_PIPELINE_ROOT_TEMPLATE = "minio://{bucket}/v2/artifacts"
 

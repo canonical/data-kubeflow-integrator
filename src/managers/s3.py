@@ -11,6 +11,7 @@ from data_platform_helpers.advanced_statuses.types import Scope
 from constants import DEFAULT_PIPELINE_ROOT_TEMPLATE, S3, S3_REQUIRED_FIELDS
 from core.state import GlobalState
 from core.statuses import CharmStatuses
+from managers.manifests import KubernetesManifestsManager
 from utils.helpers_manifests import (
     generate_artifact_repositories_configmap_manifest,
     generate_kfp_launcher_configmap_manifest,
@@ -31,6 +32,7 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
     def __init__(self, state: GlobalState):
         self.name = S3
         self.state = state
+        self.manifest_manager = KubernetesManifestsManager(state)
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component.
@@ -72,7 +74,14 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
         profile = self.state.profile_config.profile
 
         secrets_manifests = (
-            [generate_minio_artifact_secret_manifest(profile, access_key, secret_key)]
+            [
+                generate_minio_artifact_secret_manifest(
+                    self.manifest_manager.minio_artifact_secret_template,
+                    profile,
+                    access_key,
+                    secret_key,
+                )
+            ]
             if self.state.is_k8s_secrets_manifests_related()
             else []
         )
@@ -86,9 +95,18 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
                 else DEFAULT_PIPELINE_ROOT_TEMPLATE.format(bucket=bucket)
             )
             configmaps_manifests = [
-                generate_artifact_repositories_configmap_manifest(profile, bucket, endpoint),
+                generate_artifact_repositories_configmap_manifest(
+                    self.manifest_manager.artifact_repositories_template,
+                    profile,
+                    bucket,
+                    endpoint,
+                ),
                 generate_kfp_launcher_configmap_manifest(
-                    profile, endpoint, region, default_pipeline_root
+                    self.manifest_manager.kfp_launcher_template,
+                    profile,
+                    endpoint,
+                    region,
+                    default_pipeline_root,
                 ),
             ]
 
