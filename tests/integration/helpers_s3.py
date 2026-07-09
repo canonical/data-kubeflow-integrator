@@ -3,8 +3,7 @@
 # Copyright 2026 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Helpers for provisioning an S3-compatible backend for integration tests.
-"""
+"""Helpers for provisioning an S3-compatible backend for integration tests."""
 
 import dataclasses
 import json
