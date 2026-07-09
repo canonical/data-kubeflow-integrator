@@ -5,6 +5,7 @@
 """Helper methods for kubernetes manifests generation."""
 
 import base64
+from urllib.parse import urlparse
 
 import yaml
 from charms.resource_dispatcher.v0.kubernetes_manifests import KubernetesManifest
@@ -152,17 +153,20 @@ def generate_poddefault_manifest(
     return KubernetesManifest(rendered)
 
 
-def _split_s3_endpoint(endpoint: str) -> tuple[str, bool]:
-    """Split an S3 endpoint into a ``(host[:port], secure)`` tuple based on its scheme.
+def _parse_s3_endpoint(endpoint: str) -> tuple[str, bool]:
+    """Parse an S3 endpoint into a ``(host[:port], secure)`` tuple.
 
-    Defaults to non-secure (plain HTTP) when no scheme is present, matching the typical
-    in-cluster MinIO deployment used by Kubeflow.
+    The endpoint may be a full URL (e.g. ``https://s3.example.com:443``) or a bare
+    ``host[:port]``. When a URL scheme is present it determines TLS; otherwise TLS is
+    inferred from the port (``443`` -> secure). The returned host preserves the
+    ``host[:port]`` form as provided, with any scheme stripped.
     """
-    if endpoint.startswith("https://"):
-        return endpoint[len("https://") :].rstrip("/"), True
-    if endpoint.startswith("http://"):
-        return endpoint[len("http://") :].rstrip("/"), False
-    return endpoint.rstrip("/"), False
+    parsed = urlparse(endpoint if "://" in endpoint else f"//{endpoint}")
+    if parsed.scheme:
+        secure = parsed.scheme == "https"
+    else:
+        secure = parsed.port == 443
+    return parsed.netloc, secure
 
 
 def _manifest_metadata(name: str, profile: str, **extra) -> dict:
@@ -199,7 +203,7 @@ def generate_artifact_repositories_configmap_manifest(
     profile: str, bucket: str, endpoint: str
 ) -> KubernetesManifest:
     """Generate the argo ``artifact-repositories`` ConfigMap manifest for a profile."""
-    host, secure = _split_s3_endpoint(endpoint)
+    host, secure = _parse_s3_endpoint(endpoint)
     repository = {
         "archiveLogs": True,
         "s3": {
@@ -237,7 +241,7 @@ def generate_kfp_launcher_configmap_manifest(
     profile: str, bucket: str, endpoint: str, region: str | None, default_pipeline_root: str
 ) -> KubernetesManifest:
     """Generate the ``kfp-launcher`` ConfigMap manifest for a profile."""
-    host, secure = _split_s3_endpoint(endpoint)
+    host, secure = _parse_s3_endpoint(endpoint)
     providers = {
         "s3": {
             "default": {

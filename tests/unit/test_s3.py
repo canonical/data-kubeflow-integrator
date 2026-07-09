@@ -138,6 +138,46 @@ def test_s3_manifests_generated_when_related(charm_configuration: dict, base_sta
     )
 
 
+def test_s3_endpoint_without_scheme_infers_tls_from_port(
+    charm_configuration: dict, base_state: State
+):
+    """Check that a scheme-less endpoint infers TLS from its port (443 -> secure).
+
+    The endpoint is parsed with urlparse, so a bare ``host:443`` must be treated as secure
+    (``insecure``/``disableSSL`` false) while preserving the ``host:port`` form.
+    """
+    charm_configuration["options"]["profile"]["default"] = "profile-name"
+    ctx = testing.Context(
+        KubeflowIntegratorCharm,
+        meta=METADATA,
+        config=charm_configuration,
+        actions=ACTIONS,
+        unit_id=0,
+    )
+
+    s3_credentials = {**S3_CREDENTIALS, "endpoint": "minio.kubeflow:443"}
+    s3_relation = Relation(
+        endpoint="s3-credentials", interface="s3", remote_app_data=s3_credentials
+    )
+    config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
+    relations = [*base_state.relations, s3_relation, config_maps_relation]
+    state_in = dataclasses.replace(base_state, relations=relations)
+    state_out = ctx.run(ctx.on.relation_changed(s3_relation), state_in)
+
+    config_map_manifests = _get_manifests(state_out, config_maps_relation)
+    config_maps = {cm["metadata"]["name"]: cm for cm in config_map_manifests}
+
+    artifact_repositories = config_maps["artifact-repositories"]
+    repository = yaml.safe_load(artifact_repositories["data"]["default-namespaced"])
+    assert repository["s3"]["endpoint"] == "minio.kubeflow:443"
+    assert repository["s3"]["insecure"] is False
+
+    kfp_launcher = config_maps["kfp-launcher"]
+    providers = yaml.safe_load(kfp_launcher["data"]["providers"])
+    assert providers["s3"]["default"]["endpoint"] == "minio.kubeflow:443"
+    assert providers["s3"]["default"]["disableSSL"] is False
+
+
 def test_s3_default_pipeline_root_config_overrides_template(
     charm_configuration: dict, base_state: State
 ):
