@@ -8,7 +8,7 @@ from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from data_platform_helpers.advanced_statuses.types import Scope
 
-from constants import DEFAULT_PIPELINE_ROOT_TEMPLATE, S3
+from constants import DEFAULT_PIPELINE_ROOT_TEMPLATE, S3, S3_REQUIRED_FIELDS
 from core.state import GlobalState
 from core.statuses import CharmStatuses
 from utils.helpers_manifests import (
@@ -35,10 +35,19 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component.
 
-        S3 integration is optional and purely relation-driven, so this component never
-        blocks the charm on its own.
+        S3 integration is optional and purely relation-driven. Once an S3 provider has
+        advertised some credentials, the charm blocks if any of the mandatory fields
+        (access-key, secret-key, bucket, endpoint) are still missing.
         """
-        return [CharmStatuses.ACTIVE_IDLE.value]
+        status_list: list[StatusObject] = []
+
+        connection_info = self.state.s3_connection_info
+        if connection_info:
+            missing = [field for field in S3_REQUIRED_FIELDS if not connection_info.get(field)]
+            if missing:
+                status_list.append(CharmStatuses.missing_s3_credentials(fields=missing))
+
+        return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
     def generate_manifests(self) -> ReconciledManifests:
         """Generate kubernetes manifests for the current s3-credentials relation."""
@@ -46,15 +55,19 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
             return ReconciledManifests()
 
         connection_info = self.state.s3_connection_info
-        access_key = connection_info.get("access-key")
-        secret_key = connection_info.get("secret-key")
-        bucket = connection_info.get("bucket")
-        endpoint = connection_info.get("endpoint")
-        region = connection_info.get("region")
-
-        if not (access_key and secret_key and bucket and endpoint):
-            self.logger.warning("S3 connection info is incomplete, skipping manifests generation")
+        missing = [field for field in S3_REQUIRED_FIELDS if not connection_info.get(field)]
+        if missing:
+            self.logger.warning(
+                f"S3 connection info is incomplete (missing {', '.join(missing)}), "
+                "skipping manifests generation"
+            )
             return ReconciledManifests()
+
+        access_key = connection_info["access-key"]
+        secret_key = connection_info["secret-key"]
+        bucket = connection_info["bucket"]
+        endpoint = connection_info["endpoint"]
+        region = connection_info.get("region")
 
         profile = self.state.profile_config.profile
 

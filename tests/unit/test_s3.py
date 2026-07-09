@@ -10,7 +10,7 @@ from pathlib import Path
 
 import yaml
 from charms.data_platform_libs.v0.data_models import json
-from ops import ActiveStatus, testing
+from ops import ActiveStatus, BlockedStatus, testing
 from ops.testing import Relation, State
 
 from charm import KubeflowIntegratorCharm
@@ -239,7 +239,7 @@ def test_s3_manifests_omit_namespace_for_wildcard_profile(
 
 
 def test_no_s3_manifests_when_credentials_incomplete(charm_configuration: dict, base_state: State):
-    """Check that no manifests are generated when the S3 credentials are incomplete."""
+    """Check that incomplete S3 credentials block the charm and generate no manifests."""
     charm_configuration["options"]["profile"]["default"] = "profile-name"
     ctx = testing.Context(
         KubeflowIntegratorCharm,
@@ -261,7 +261,8 @@ def test_no_s3_manifests_when_credentials_incomplete(charm_configuration: dict, 
     state_in = dataclasses.replace(base_state, relations=relations)
     state_out = ctx.run(ctx.on.relation_changed(config_maps_relation), state_in)
 
-    assert state_out.app_status == ActiveStatus()
+    assert isinstance(status := state_out.app_status, BlockedStatus)
+    assert "Missing S3 field(s): 'secret-key', 'endpoint'" in status.message
     config_map_manifests = _get_manifests(state_out, config_maps_relation)
     assert config_map_manifests == []
 
@@ -269,10 +270,10 @@ def test_no_s3_manifests_when_credentials_incomplete(charm_configuration: dict, 
 def test_no_s3_manifests_when_bucket_and_endpoint_missing(
     charm_configuration: dict, base_state: State
 ):
-    """Check that no manifests are generated when credentials lack a bucket and endpoint.
+    """Check that credentials lacking a bucket and endpoint block the charm and skip manifests.
 
     The mandatory access-key/secret-key are present (so the relation is considered ready), but
-    without a bucket and endpoint the manifests cannot be rendered and must be skipped.
+    without a bucket and endpoint the manifests cannot be rendered and the charm blocks.
     """
     charm_configuration["options"]["profile"]["default"] = "profile-name"
     ctx = testing.Context(
@@ -293,7 +294,8 @@ def test_no_s3_manifests_when_bucket_and_endpoint_missing(
     state_in = dataclasses.replace(base_state, relations=relations)
     state_out = ctx.run(ctx.on.relation_changed(s3_relation), state_in)
 
-    assert state_out.app_status == ActiveStatus()
+    assert isinstance(status := state_out.app_status, BlockedStatus)
+    assert "Missing S3 field(s): 'bucket', 'endpoint'" in status.message
     assert _get_manifests(state_out, config_maps_relation) == []
 
 

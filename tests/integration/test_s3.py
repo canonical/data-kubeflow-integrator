@@ -86,7 +86,7 @@ def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integr
 
 
 def test_integrate_with_s3_integrator(juju: jubilant.Juju):
-    """Deploy s3-integrator, advertise MinIO credentials and integrate with the integrator."""
+    """Deploy s3-integrator and integrate with the integrator."""
     logger.info("Deploying s3-integrator charm...")
     juju.deploy(
         S3_INTEGRATOR,

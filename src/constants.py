@@ -47,6 +47,9 @@ ARTIFACT_REPOSITORY_REF = "default-namespaced"
 # Default template used for the `kfp-launcher` defaultPipelineRoot when unset via config
 DEFAULT_PIPELINE_ROOT_TEMPLATE = "minio://{bucket}/v2/artifacts"
 
+# Mandatory fields an S3 provider must advertise over the s3-credentials relation
+S3_REQUIRED_FIELDS = ("access-key", "secret-key", "bucket", "endpoint")
+
 K8S_TLS_SECRET_VOLUME = "tls-secret"
 K8S_TLS_MOUNTPATH = "/etc/data-kubeflow-integrator"
 

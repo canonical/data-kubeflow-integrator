@@ -69,6 +69,16 @@ class CharmStatuses(Enum):
             action="Integrate with Spark Integration Hub charm.",
         )
 
+    @staticmethod
+    def missing_s3_credentials(fields: list[str]) -> StatusObject:
+        """Some of the mandatory S3 relation fields are missing."""
+        fields_str = ", ".join(f"'{field}'" for field in fields)
+        return StatusObject(
+            status="blocked",
+            message=f"Missing S3 field(s): {fields_str}",
+            action=f"Provide S3 field(s) from the S3 provider: {fields_str}",
+        )
+
 
 class ConfigStatuses(Enum):
     """Status objects related to config options."""
