@@ -6,13 +6,13 @@ metadata:
   namespace: {{ namespace }}
   {% endif %}
 data:
-  defaultPipelineRoot: "{{ default_pipeline_root }}"
+  defaultPipelineRoot: {{ default_pipeline_root | tojson }}
   providers: |
     s3:
       default:
-        endpoint: "{{ endpoint }}"
-        disableSSL: {{ disable_ssl | lower }}
-        region: "{{ region }}"
+        endpoint: {{ endpoint | tojson }}
+        disableSSL: {{ disable_ssl | tojson }}
+        region: {{ region | tojson }}
         credentials:
           fromEnv: false
           secretRef:

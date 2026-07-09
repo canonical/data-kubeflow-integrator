@@ -17,7 +17,7 @@ data:
       secretKeySecret:
         name: {{ secret_name }}
         key: {{ secret_key }}
-      bucket: "{{ bucket }}"
-      endpoint: "{{ endpoint }}"
-      insecure: {{ insecure | lower }}
-      keyFormat: "{{ key_format }}"
+      bucket: {{ bucket | tojson }}
+      endpoint: {{ endpoint | tojson }}
+      insecure: {{ insecure | tojson }}
+      keyFormat: {{ key_format | tojson }}
