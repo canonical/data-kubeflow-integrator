@@ -32,6 +32,16 @@ ADMISSION_WEBHOOK_CHANNEL = "latest/edge"
 
 S3_INTEGRATOR = "s3-integrator"
 S3_INTEGRATOR_CHANNEL = "2/edge"
+S3_CREDENTIALS_SECRET = "s3-integrator-credentials"
+
+# s3-integrator should be blocked since we're pointing to an endpoint that doesn't exist
+# so exclude it from the set of apps we want active.
+ACTIVE_APPS = (
+    KUBEFLOW_INTEGRATOR,
+    METACONTROLLER_CHARM,
+    ADMISSION_WEBHOOK,
+    RESOURCE_DISPATCHER,
+)
 
 S3_CREDENTIALS_RELATION_NAME = "s3-credentials"
 SECRETS_RELATION_NAME = "secrets"
@@ -40,8 +50,8 @@ CONFIG_MAPS_RELATION_NAME = "config-maps"
 MINIO_ACCESS_KEY = "minio"
 MINIO_SECRET_KEY = "minio-secret-key"
 MINIO_BUCKET = "mlpipeline"
-MINIO_ENDPOINT = "http://minio.kubeflow.svc.cluster.local:9000"
-MINIO_ENDPOINT_HOST = "minio.kubeflow.svc.cluster.local:9000"
+MINIO_ENDPOINT = "http://sample.endpoint:9000"
+MINIO_ENDPOINT_HOST = "sample.endpoint:9000"
 MINIO_REGION = "us-east-1"
 
 EXPECTED_MINIO_SECRET_NAME = "mlpipeline-minio-artifact"
@@ -98,13 +108,25 @@ def test_integrate_with_s3_integrator(juju: jubilant.Juju):
         },
     )
 
+    logger.info("Providing S3 credentials to s3-integrator via a user secret...")
+    secret_uri = juju.add_secret(
+        S3_CREDENTIALS_SECRET,
+        {"access-key": MINIO_ACCESS_KEY, "secret-key": MINIO_SECRET_KEY},
+    )
+    juju.grant_secret(secret_uri, S3_INTEGRATOR)
+    juju.config(S3_INTEGRATOR, {"credentials": secret_uri})
+
     logger.info("Integrating kubeflow-integrator with s3-integrator...")
     juju.integrate(
         f"{KUBEFLOW_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
         f"{S3_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
     )
+    # Do not wait for s3-integrator itself to be active: it may stay blocked if it cannot reach
+    # the configured S3 endpoint. Its agent still settles idle after sharing the connection info.
     juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
+        lambda status: jubilant.all_active(status, *ACTIVE_APPS)
+        and jubilant.all_agents_idle(status),
+        delay=5,
     )
 
 
@@ -121,7 +143,9 @@ def test_s3_manifests_generated_in_relation_data(juju: jubilant.Juju):
         f"{RESOURCE_DISPATCHER}:{CONFIG_MAPS_RELATION_NAME}",
     )
     juju.wait(
-        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
+        lambda status: jubilant.all_active(status, *ACTIVE_APPS)
+        and jubilant.all_agents_idle(status),
+        delay=5,
     )
 
     secret_manifests = _get_manifests_from_relation(juju, SECRETS_RELATION_NAME)

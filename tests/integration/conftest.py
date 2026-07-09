@@ -53,7 +53,12 @@ def pytest_addoption(parser):
 def kubeflow_integrator(request: pytest.FixtureRequest) -> Path:
     """Path to the packed kf-integrator charm."""
     if charm_path := request.config.getoption("--charm-path"):
-        return Path(charm_path)
+        # Resolve to an absolute path so `juju deploy` treats it unambiguously as a local
+        # charm
+        path = Path(charm_path).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"Charm file not found at --charm-path: {path}")
+        return path
 
     if not (path := next(iter(Path.cwd().glob(f"{APP_NAME}*.charm")), None)):
         raise FileNotFoundError("Could not find packed kubeflow-integrator charm.")
