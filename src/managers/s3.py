@@ -88,7 +88,7 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
             configmaps_manifests = [
                 generate_artifact_repositories_configmap_manifest(profile, bucket, endpoint),
                 generate_kfp_launcher_configmap_manifest(
-                    profile, bucket, endpoint, region, default_pipeline_root
+                    profile, endpoint, region, default_pipeline_root
                 ),
             ]
 

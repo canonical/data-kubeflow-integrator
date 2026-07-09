@@ -238,7 +238,7 @@ def generate_artifact_repositories_configmap_manifest(
 
 
 def generate_kfp_launcher_configmap_manifest(
-    profile: str, bucket: str, endpoint: str, region: str | None, default_pipeline_root: str
+    profile: str, endpoint: str, region: str | None, default_pipeline_root: str
 ) -> KubernetesManifest:
     """Generate the ``kfp-launcher`` ConfigMap manifest for a profile."""
     host, secure = _parse_s3_endpoint(endpoint)
