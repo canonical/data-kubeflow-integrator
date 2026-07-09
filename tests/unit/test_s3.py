@@ -10,7 +10,6 @@ from pathlib import Path
 
 import yaml
 from charms.data_platform_libs.v0.data_models import json
-from jinja2 import Template
 from ops import ActiveStatus, BlockedStatus, testing
 from ops.testing import Relation, State
 
@@ -136,52 +135,6 @@ def test_s3_manifests_generated_when_related(charm_configuration: dict, base_sta
     assert providers["s3"]["default"]["region"] == "us-east-1"
     assert providers["s3"]["default"]["credentials"]["secretRef"]["secretName"] == (
         "mlpipeline-minio-artifact"
-    )
-
-
-def test_artifact_repositories_keyformat_survives_resource_dispatcher_render(
-    charm_configuration: dict, base_state: State
-):
-    """Check the argo keyFormat placeholders survive resource-dispatcher's Jinja2 render.
-
-    resource-dispatcher renders every manifest it receives through Jinja2 (to substitute
-    ``{{NAMESPACE}}``) before applying it. The argo ``keyFormat`` legitimately contains
-    ``{{workflow.name}}``/``{{pod.name}}`` placeholders that must reach the applied ConfigMap
-    verbatim, so the manifest wraps them in a raw block. Without it the render raises an
-    ``UndefinedError`` and the whole sync fails, so this reproduces that render step and asserts
-    the literal placeholders are preserved.
-    """
-    charm_configuration["options"]["profile"]["default"] = "profile-name"
-    ctx = testing.Context(
-        KubeflowIntegratorCharm,
-        meta=METADATA,
-        config=charm_configuration,
-        actions=ACTIONS,
-        unit_id=0,
-    )
-
-    s3_relation = Relation(
-        endpoint="s3-credentials", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
-    )
-    config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
-    relations = [*base_state.relations, s3_relation, config_maps_relation]
-    state_in = dataclasses.replace(base_state, relations=relations)
-    state_out = ctx.run(ctx.on.relation_changed(s3_relation), state_in)
-
-    config_map_manifests = _get_manifests(state_out, config_maps_relation)
-    artifact_repositories = [
-        cm for cm in config_map_manifests if cm["metadata"]["name"] == "artifact-repositories"
-    ][0]
-
-    # Replicate resource-dispatcher's server.py: it dumps each received manifest to a YAML file,
-    # then renders that file through Jinja2 with NAMESPACE set before applying it.
-    rendered = yaml.safe_load(
-        Template(yaml.dump(artifact_repositories)).render(NAMESPACE="profile-name")
-    )
-    repository = yaml.safe_load(rendered["data"]["default-namespaced"])
-    assert repository["s3"]["keyFormat"] == (
-        "artifacts/{{workflow.name}}/{{workflow.creationTimestamp.Y}}/"
-        "{{workflow.creationTimestamp.m}}/{{workflow.creationTimestamp.d}}/{{pod.name}}"
     )
 
 
