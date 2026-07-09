@@ -78,8 +78,7 @@ def test_deploy_and_configure_kf_integrator(juju: jubilant.Juju, kubeflow_integr
     juju.deploy(ADMISSION_WEBHOOK, channel=ADMISSION_WEBHOOK_CHANNEL, trust=True)
     juju.deploy(RESOURCE_DISPATCHER, channel=RESOURCE_DISPATCHER_CHANNEL, trust=True)
 
-    # S3 integration is optional and relation-driven, so the integrator settles as active on its
-    # own before any S3 provider is related.
+    # S3 integration is optional, so expect Active status
     juju.wait(
         lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status), delay=5
     )
