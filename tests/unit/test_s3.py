@@ -49,15 +49,13 @@ def _get_manifests(state_out: State, relation: Relation) -> list[dict]:
 def test_charm_active_when_s3_pipeline_root_set_without_relation(
     charm_configuration: dict, base_state: State
 ):
-    """Check that setting 's3-default-pipeline-root' alone does not block the charm.
+    """Check that setting 'kfp-pipeline-root' alone does not block the charm.
 
     S3 integration is purely relation-driven, so the config option is optional and must not
     put the charm in a blocked status when no S3 provider is related.
     """
     charm_configuration["options"]["profile"]["default"] = "profile-name"
-    charm_configuration["options"]["s3-default-pipeline-root"]["default"] = (
-        "minio://mlpipeline/custom"
-    )
+    charm_configuration["options"]["kfp-pipeline-root"]["default"] = "minio://mlpipeline/custom"
     ctx = testing.Context(
         KubeflowIntegratorCharm,
         meta=METADATA,
@@ -82,7 +80,7 @@ def test_s3_manifests_generated_when_related(charm_configuration: dict, base_sta
     )
 
     s3_relation = Relation(
-        endpoint="s3-credentials", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
+        endpoint="kfp-s3-storage", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
     )
     secrets_relation = Relation(endpoint="secrets", interface="kubernetes_manifest")
     config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
@@ -162,7 +160,7 @@ def test_s3_endpoint_without_scheme_infers_tls_from_port(
 
     s3_credentials = {**S3_CREDENTIALS, "endpoint": "minio.kubeflow:443"}
     s3_relation = Relation(
-        endpoint="s3-credentials", interface="s3", remote_app_data=s3_credentials
+        endpoint="kfp-s3-storage", interface="s3", remote_app_data=s3_credentials
     )
     config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
     relations = [*base_state.relations, s3_relation, config_maps_relation]
@@ -186,9 +184,9 @@ def test_s3_endpoint_without_scheme_infers_tls_from_port(
 def test_s3_default_pipeline_root_config_overrides_template(
     charm_configuration: dict, base_state: State
 ):
-    """Check that the 's3-default-pipeline-root' config overrides the kfp-launcher default."""
+    """Check that the 'kfp-pipeline-root' config overrides the kfp-launcher default."""
     charm_configuration["options"]["profile"]["default"] = "profile-name"
-    charm_configuration["options"]["s3-default-pipeline-root"]["default"] = (
+    charm_configuration["options"]["kfp-pipeline-root"]["default"] = (
         "minio://mlpipeline/custom-root"
     )
     ctx = testing.Context(
@@ -200,7 +198,7 @@ def test_s3_default_pipeline_root_config_overrides_template(
     )
 
     s3_relation = Relation(
-        endpoint="s3-credentials", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
+        endpoint="kfp-s3-storage", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
     )
     config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
     relations = [*base_state.relations, s3_relation, config_maps_relation]
@@ -228,7 +226,7 @@ def test_s3_manifests_omit_namespace_for_wildcard_profile(
     )
 
     s3_relation = Relation(
-        endpoint="s3-credentials", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
+        endpoint="kfp-s3-storage", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
     )
     secrets_relation = Relation(endpoint="secrets", interface="kubernetes_manifest")
     config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
@@ -257,7 +255,7 @@ def test_no_s3_manifests_when_credentials_incomplete(charm_configuration: dict, 
     # Missing the mandatory secret-key: the S3 lib does not emit storage_connection_info_changed
     # and the manifests must not be generated.
     s3_relation = Relation(
-        endpoint="s3-credentials",
+        endpoint="kfp-s3-storage",
         interface="s3",
         remote_app_data={"access-key": "minio-access-key", "bucket": "mlpipeline", "version": "1"},
     )
@@ -267,7 +265,7 @@ def test_no_s3_manifests_when_credentials_incomplete(charm_configuration: dict, 
     state_out = ctx.run(ctx.on.relation_changed(config_maps_relation), state_in)
 
     assert isinstance(status := state_out.app_status, BlockedStatus)
-    assert "Missing S3 field(s): 'secret-key', 'endpoint'" in status.message
+    assert "Missing KFP field(s): 'secret-key', 'endpoint'" in status.message
     config_map_manifests = _get_manifests(state_out, config_maps_relation)
     assert config_map_manifests == []
 
@@ -290,7 +288,7 @@ def test_no_s3_manifests_when_bucket_and_endpoint_missing(
     )
 
     s3_relation = Relation(
-        endpoint="s3-credentials",
+        endpoint="kfp-s3-storage",
         interface="s3",
         remote_app_data={
             "access-key": "minio-access-key",
@@ -304,7 +302,7 @@ def test_no_s3_manifests_when_bucket_and_endpoint_missing(
     state_out = ctx.run(ctx.on.relation_changed(s3_relation), state_in)
 
     assert isinstance(status := state_out.app_status, BlockedStatus)
-    assert "Missing S3 field(s): 'bucket', 'endpoint'" in status.message
+    assert "Missing KFP field(s): 'bucket', 'endpoint'" in status.message
     assert _get_manifests(state_out, config_maps_relation) == []
 
 
@@ -326,7 +324,7 @@ def test_s3_secret_generated_without_config_maps_relation(
     )
 
     s3_relation = Relation(
-        endpoint="s3-credentials", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
+        endpoint="kfp-s3-storage", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
     )
     secrets_relation = Relation(endpoint="secrets", interface="kubernetes_manifest")
     relations = [*base_state.relations, s3_relation, secrets_relation]
@@ -351,7 +349,7 @@ def test_s3_manifests_cleared_when_credentials_gone(charm_configuration: dict, b
     )
 
     s3_relation = Relation(
-        endpoint="s3-credentials", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
+        endpoint="kfp-s3-storage", interface="s3", remote_app_data=dict(S3_CREDENTIALS)
     )
     secrets_relation = Relation(endpoint="secrets", interface="kubernetes_manifest")
     config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")

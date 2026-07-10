@@ -2,13 +2,13 @@
 # Copyright 2026 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Manager for S3 / object storage related tasks."""
+"""Manager for KFP / object storage related tasks."""
 
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from data_platform_helpers.advanced_statuses.types import Scope
 
-from constants import DEFAULT_PIPELINE_ROOT_TEMPLATE, S3, S3_REQUIRED_FIELDS
+from constants import DEFAULT_PIPELINE_ROOT_TEMPLATE, KFP, S3_REQUIRED_FIELDS
 from core.state import GlobalState
 from core.statuses import CharmStatuses
 from managers.manifests import KubernetesManifestsManager
@@ -21,8 +21,8 @@ from utils.k8s_models import ReconciledManifests
 from utils.logging import WithLogging
 
 
-class S3Manager(ManagerStatusProtocol, WithLogging):
-    """Manager for the s3-credentials relation.
+class KFPManager(ManagerStatusProtocol, WithLogging):
+    """Manager for the kfp-s3-storage relation.
 
     Generates the Kubeflow multi-tenancy artifact-store resources (the
     ``mlpipeline-minio-artifact`` Secret and the ``artifact-repositories`` and
@@ -30,37 +30,37 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
     """
 
     def __init__(self, state: GlobalState):
-        self.name = S3
+        self.name = KFP
         self.state = state
         self.manifest_manager = KubernetesManifestsManager(state)
 
     def get_statuses(self, scope: Scope, recompute: bool = False) -> list[StatusObject]:
         """Return the list of statuses for this component.
 
-        S3 integration is optional and purely relation-driven. Once an S3 provider has
+        KFP integration is optional and purely relation-driven. Once an S3 provider has
         advertised some credentials, the charm blocks if any of the mandatory fields
         (access-key, secret-key, bucket, endpoint) are still missing.
         """
         status_list: list[StatusObject] = []
 
-        connection_info = self.state.s3_connection_info
+        connection_info = self.state.kfp_connection_info
         if connection_info:
             missing = [field for field in S3_REQUIRED_FIELDS if not connection_info.get(field)]
             if missing:
-                status_list.append(CharmStatuses.missing_s3_credentials(fields=missing))
+                status_list.append(CharmStatuses.missing_kfp_credentials(fields=missing))
 
         return status_list or [CharmStatuses.ACTIVE_IDLE.value]
 
     def generate_manifests(self) -> ReconciledManifests:
-        """Generate kubernetes manifests for the current s3-credentials relation."""
-        if not (self.state.is_s3_related() and self.state.profile_config):
+        """Generate kubernetes manifests for the current kfp-s3-storage relation."""
+        if not (self.state.is_kfp_related() and self.state.profile_config):
             return ReconciledManifests()
 
-        connection_info = self.state.s3_connection_info
+        connection_info = self.state.kfp_connection_info
         missing = [field for field in S3_REQUIRED_FIELDS if not connection_info.get(field)]
         if missing:
             self.logger.warning(
-                f"S3 connection info is incomplete (missing {', '.join(missing)}), "
+                f"KFP connection info is incomplete (missing {', '.join(missing)}), "
                 "skipping manifests generation"
             )
             return ReconciledManifests()
@@ -88,10 +88,10 @@ class S3Manager(ManagerStatusProtocol, WithLogging):
 
         configmaps_manifests = []
         if self.state.is_k8s_configmaps_manifests_related():
-            s3_config = self.state.s3_config
+            kfp_config = self.state.kfp_config
             default_pipeline_root = (
-                s3_config.default_pipeline_root
-                if s3_config and s3_config.default_pipeline_root
+                kfp_config.default_pipeline_root
+                if kfp_config and kfp_config.default_pipeline_root
                 else DEFAULT_PIPELINE_ROOT_TEMPLATE.format(bucket=bucket)
             )
             configmaps_manifests = [

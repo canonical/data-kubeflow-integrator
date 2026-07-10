@@ -10,7 +10,7 @@ MYSQL = "mysql"
 OPENSEARCH = "opensearch"
 KAFKA = "kafka"
 SPARK = "spark"
-S3 = "s3"
+KFP = "kfp"
 
 
 OPENSEARCH_RELATION_NAME = "opensearch"
@@ -19,7 +19,7 @@ MYSQL_RELATION_NAME = "mysql"
 MONGODB_RELATION_NAME = "mongodb"
 KAFKA_RELATION_NAME = "kafka"
 SPARK_RELATION_NAME = "spark"
-S3_RELATION_NAME = "s3-credentials"
+KFP_RELATION_NAME = "kfp-s3-storage"
 
 STATUS_PEERS_RELATION_NAME = "status-peers"
 SECRETS_DISPATCHER_RELATION_NAME = "secrets"
@@ -56,7 +56,7 @@ ARTIFACT_KEY_FORMAT = (
 # Default template used for the `kfp-launcher` defaultPipelineRoot when unset via config
 DEFAULT_PIPELINE_ROOT_TEMPLATE = "minio://{bucket}/v2/artifacts"
 
-# Mandatory fields an S3 provider must advertise over the s3-credentials relation
+# Mandatory fields an S3 provider must advertise over the kfp-s3-storage relation
 S3_REQUIRED_FIELDS = ("access-key", "secret-key", "bucket", "endpoint")
 
 K8S_TLS_SECRET_VOLUME = "tls-secret"

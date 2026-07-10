@@ -34,7 +34,7 @@ requires:
   spark:
     interface: spark_service_account
     limit: 1
-  s3-credentials:
+  kfp-s3-storage:
     interface: s3
     limit: 1
 

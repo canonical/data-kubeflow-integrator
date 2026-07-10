@@ -156,8 +156,10 @@ def test_manifests_generation_with_opensearch(juju: jubilant.Juju, juju_vm: jubi
 
     logger.info("Waiting for kubeflow-integrator to be active")
     juju.wait(
-        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
-        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME),
+        lambda status: (
+            jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+            and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        ),
         delay=5,
         timeout=600,
     )

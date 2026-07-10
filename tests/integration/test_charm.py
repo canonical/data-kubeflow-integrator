@@ -23,8 +23,9 @@ def test_deploy(juju: jubilant.Juju, kubeflow_integrator: str):
     logger.info("Deploying Kubeflow Integrator charm")
     juju.deploy(kubeflow_integrator, app=KUBEFLOW_INTEGRATOR)
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
     assert "Missing config(s): 'profile'" in status.apps[KUBEFLOW_INTEGRATOR].app_status.message
@@ -35,8 +36,9 @@ def test_configure_profile(juju: jubilant.Juju):
     logger.info("Configuring the profile config option")
     juju.config(KUBEFLOW_INTEGRATOR, {"profile": "profile-name"})
     status = juju.wait(
-        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_active(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
     assert status.apps[KUBEFLOW_INTEGRATOR].app_status.current == "active"
@@ -48,8 +50,9 @@ def test_invalid_profile_config(juju: jubilant.Juju):
     juju.config(KUBEFLOW_INTEGRATOR, {"profile": "-profile"})
 
     status = juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR) and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
 
