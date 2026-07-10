@@ -38,6 +38,7 @@ S3_INTEGRATOR_CHANNEL = "2/edge"
 S3_CREDENTIALS_SECRET = "s3-integrator-credentials"
 
 S3_CREDENTIALS_RELATION_NAME = "kfp-s3-storage"
+S3_INTEGRATOR_PROVIDES_RELATION_NAME = "s3-credentials"
 SECRETS_RELATION_NAME = "secrets"
 CONFIG_MAPS_RELATION_NAME = "config-maps"
 
@@ -136,7 +137,7 @@ def test_integrate_with_s3_integrator(juju: jubilant.Juju, s3_connection_info: S
     logger.info("Integrating kubeflow-integrator with s3-integrator...")
     juju.integrate(
         f"{KUBEFLOW_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
-        f"{S3_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
+        f"{S3_INTEGRATOR}:{S3_INTEGRATOR_PROVIDES_RELATION_NAME}",
     )
     juju.wait(
         lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status),
@@ -286,7 +287,7 @@ def test_remove_s3_integration(
     logger.info("Removing integration between kubeflow-integrator and s3-integrator...")
     juju.remove_relation(
         f"{KUBEFLOW_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
-        f"{S3_INTEGRATOR}:{S3_CREDENTIALS_RELATION_NAME}",
+        f"{S3_INTEGRATOR}:{S3_INTEGRATOR_PROVIDES_RELATION_NAME}",
     )
     juju.wait(
         lambda status: (
