@@ -9,10 +9,8 @@ import dataclasses
 import json
 import logging
 import os
-import shutil
 import socket
 import subprocess
-from pathlib import Path
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -35,20 +33,6 @@ def host_ip() -> str:
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect(("1.1.1.1", 80))
         return s.getsockname()[0]
-
-
-def local_tmp_folder(name: str = "tmp") -> Path:
-    """Create (or recreate) a local temporary directory with the given name."""
-    tmp_folder = Path.cwd() / name
-    if tmp_folder.exists():
-        shutil.rmtree(tmp_folder)
-    tmp_folder.mkdir()
-    return tmp_folder
-
-
-def certs_path() -> Path:
-    """A temporary directory to store certificates and keys."""
-    return local_tmp_folder("temp-certs")
 
 
 @retry(stop=stop_after_attempt(20), wait=wait_fixed(3), reraise=True)
@@ -90,98 +74,12 @@ def install_microceph():
         raise
 
 
-def setup_radosgw(host_ip: str, certs_path: Path):
-    """Generate TLS certificates and enable the RADOS Gateway."""
-    logger.info("Generating TLS certificates")
-    subprocess.run(["openssl", "genrsa", "-out", str(certs_path / "ca.key"), "2048"], check=True)
-    subprocess.run(
-        [
-            "openssl",
-            "req",
-            "-x509",
-            "-new",
-            "-nodes",
-            "-key",
-            str(certs_path / "ca.key"),
-            "-days",
-            "1024",
-            "-out",
-            str(certs_path / "ca.crt"),
-            "-outform",
-            "PEM",
-            "-subj",
-            f"/C=US/ST=Denial/L=Springfield/O=Dis/CN={host_ip}",
-        ],
-        check=True,
-    )
-    subprocess.run(
-        ["openssl", "genrsa", "-out", str(certs_path / "server.key"), "2048"],
-        check=True,
-    )
-    subprocess.run(
-        [
-            "openssl",
-            "req",
-            "-new",
-            "-key",
-            str(certs_path / "server.key"),
-            "-out",
-            str(certs_path / "server.csr"),
-            "-subj",
-            f"/C=US/ST=Denial/L=Springfield/O=Dis/CN={host_ip}",
-        ],
-        check=True,
-    )
-    with open(certs_path / "extfile.cnf", "w") as extfile:
-        extfile.write(f"subjectAltName = DNS:{host_ip}, IP:{host_ip}")
-    subprocess.run(
-        [
-            "openssl",
-            "x509",
-            "-req",
-            "-in",
-            str(certs_path / "server.csr"),
-            "-CA",
-            str(certs_path / "ca.crt"),
-            "-CAkey",
-            str(certs_path / "ca.key"),
-            "-CAcreateserial",
-            "-out",
-            str(certs_path / "server.crt"),
-            "-days",
-            "365",
-            "-extfile",
-            str(certs_path / "extfile.cnf"),
-        ],
-        check=True,
-    )
-
-    server_crt_base64 = subprocess.run(
-        ["sudo", "base64", "-w0", str(certs_path / "server.crt")],
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
-    server_key_base64 = subprocess.run(
-        ["sudo", "base64", "-w0", str(certs_path / "server.key")],
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
-
+def setup_radosgw():
+    """Enable the RADOS Gateway over plain HTTP (no TLS)."""
     logger.info("Enabling RADOS Gateway")
     try:
         subprocess.run(
-            [
-                "sudo",
-                "microceph",
-                "enable",
-                "rgw",
-                "--ssl-certificate",
-                server_crt_base64,
-                "--ssl-private-key",
-                server_key_base64,
-            ],
+            ["sudo", "microceph", "enable", "rgw"],
             check=True,
             stderr=subprocess.PIPE,
         )
@@ -193,7 +91,7 @@ def setup_radosgw(host_ip: str, certs_path: Path):
     wait_for_rgw_ready()
 
 
-def create_user(host_ip: str, certs_path: Path) -> S3ConnectionInfo:
+def create_user(host_ip: str) -> S3ConnectionInfo:
     """Create an S3 user, reusing existing credentials if present."""
     uid = "kfp-integration-user"
     result = subprocess.run(
@@ -225,18 +123,11 @@ def create_user(host_ip: str, certs_path: Path) -> S3ConnectionInfo:
         ).stdout
         key = json.loads(output)["keys"][0]
 
-    ca_crt_base64 = subprocess.run(
-        ["sudo", "base64", "-w0", str(certs_path / "ca.crt")],
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip()
-
     return S3ConnectionInfo(
-        endpoint=f"https://{host_ip}",
+        endpoint=f"http://{host_ip}",
         access_key=key["access_key"],
         secret_key=key["secret_key"],
-        tls_ca_chain=ca_crt_base64,
+        tls_ca_chain="",
         region="default",
     )
 
@@ -263,7 +154,6 @@ def setup_microceph() -> S3ConnectionInfo:
             region=os.environ.get("S3_REGION", "default"),
         )
     ip = host_ip()
-    path = certs_path()
     install_microceph()
-    setup_radosgw(ip, path)
-    return create_user(ip, path)
+    setup_radosgw()
+    return create_user(ip)
