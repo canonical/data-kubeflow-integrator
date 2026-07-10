@@ -193,36 +193,19 @@ def setup_radosgw(host_ip: str, certs_path: Path):
     wait_for_rgw_ready()
 
 
-def create_root_user(host_ip: str, certs_path: Path) -> S3ConnectionInfo:
-    """Create the root account and IAM user, reusing existing credentials if present."""
+def create_user(host_ip: str, certs_path: Path) -> S3ConnectionInfo:
+    """Create an S3 user, reusing existing credentials if present."""
+    uid = "kfp-integration-user"
     result = subprocess.run(
-        ["sudo", "microceph.radosgw-admin", "user", "info", "--uid", "root-iam-user"],
+        ["sudo", "microceph.radosgw-admin", "user", "info", "--uid", uid],
         capture_output=True,
         encoding="utf-8",
     )
     if result.returncode == 0:
-        logger.info("Root IAM user already exists, reusing credentials")
+        logger.info("S3 user %s already exists, reusing credentials", uid)
         key = json.loads(result.stdout)["keys"][0]
     else:
-        logger.info("Creating user account...")
-        output = subprocess.run(
-            [
-                "sudo",
-                "microceph.radosgw-admin",
-                "account",
-                "create",
-                "--account-name",
-                "root-account",
-                "--email",
-                "test@example.com",
-            ],
-            capture_output=True,
-            check=True,
-            encoding="utf-8",
-        ).stdout
-        root_account_id = json.loads(output)["id"]
-
-        logger.info("Creating root IAM user...")
+        logger.info("Creating S3 user %s...", uid)
         output = subprocess.run(
             [
                 "sudo",
@@ -230,14 +213,11 @@ def create_root_user(host_ip: str, certs_path: Path) -> S3ConnectionInfo:
                 "user",
                 "create",
                 "--uid",
-                "root-iam-user",
+                uid,
                 "--display-name",
-                "root-iam-user",
-                "--account-id",
-                root_account_id,
-                "--account-root",
-                "--gen-secret",
+                uid,
                 "--gen-access-key",
+                "--gen-secret",
             ],
             capture_output=True,
             check=True,
@@ -262,7 +242,7 @@ def create_root_user(host_ip: str, certs_path: Path) -> S3ConnectionInfo:
 
 
 def setup_microceph() -> S3ConnectionInfo:
-    """Set up microceph, radosgw, account, and root user; return S3 connection info.
+    """Set up microceph, radosgw, and an S3 user; return S3 connection info.
 
     If ``S3_ACCESS_KEY``, ``S3_SECRET_KEY`` and ``S3_ENDPOINT`` environment variables
     are set, the microceph setup is skipped entirely and the credentials are taken
@@ -286,4 +266,4 @@ def setup_microceph() -> S3ConnectionInfo:
     path = certs_path()
     install_microceph()
     setup_radosgw(ip, path)
-    return create_root_user(ip, path)
+    return create_user(ip, path)
