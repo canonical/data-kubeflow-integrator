@@ -137,9 +137,9 @@ def setup_microceph() -> S3ConnectionInfo:
 
     If ``S3_ACCESS_KEY``, ``S3_SECRET_KEY`` and ``S3_ENDPOINT`` environment variables
     are set, the microceph setup is skipped entirely and the credentials are taken
-    from the environment. ``S3_TLS_CA`` may optionally supply a base64-encoded CA
-    certificate and ``S3_REGION`` the region (defaulting to ``default``).
-    """
+    from the environment. ``S3_TLS_CA`` may optionally supply a CA certificate chain
+    (in the format expected by the `s3-integrator` charm) and ``S3_REGION`` the region
+    (defaulting to ``default``).
     if (
         os.environ.get("S3_ACCESS_KEY")
         and os.environ.get("S3_SECRET_KEY")
