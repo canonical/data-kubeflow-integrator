@@ -298,18 +298,18 @@ def test_remove_s3_integration(
     )
 
     for attempt in Retrying(stop=stop_after_attempt(20), wait=wait_fixed(10)):
-        for resource_type, resource_name in [
-            (Secret, EXPECTED_MINIO_SECRET_NAME),
-            (ConfigMap, EXPECTED_ARTIFACT_REPOSITORIES_CONFIGMAP),
-            (ConfigMap, EXPECTED_KFP_LAUNCHER_CONFIGMAP),
-        ]:
-            with attempt:
+        with attempt:
+            for resource_type, resource_name in [
+                (Secret, EXPECTED_MINIO_SECRET_NAME),
+                (ConfigMap, EXPECTED_ARTIFACT_REPOSITORIES_CONFIGMAP),
+                (ConfigMap, EXPECTED_KFP_LAUNCHER_CONFIGMAP),
+            ]:
                 try:
                     lightkube_client.get(
                         resource_type, name=resource_name, namespace=kubeflow_user_profile_a
                     )
-                    raise AssertionError(
-                        f"Expected {resource_type} {resource_name} to be deleted, but it still exists."
-                    )
                 except ApiError:
-                    pass  # this is exactly what's expected
+                    continue  # deleted as expected
+                raise AssertionError(
+                    f"Expected {resource_type} {resource_name} to be deleted, but it still exists."
+                )
