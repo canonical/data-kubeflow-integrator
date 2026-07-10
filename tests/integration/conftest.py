@@ -139,7 +139,7 @@ def juju_vm(request: pytest.FixtureRequest, vm_controller: str):
             print(log, end="")
 
     if model_name:
-        juju_instance = jubilant.Juju(model=model_name)
+        juju_instance = jubilant.Juju(model=f"{vm_controller}:{model_name}")
         juju_instance.wait_timeout = WAIT_TIMEOUT
         try:
             yield juju_instance
