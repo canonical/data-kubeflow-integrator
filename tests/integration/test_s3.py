@@ -243,6 +243,40 @@ def test_s3_resources_created_in_profile_namespace(
             assert providers["s3"]["default"]["region"] == s3_connection_info.region
 
 
+def test_s3_charm_blocks_on_missing_fields(
+    juju: jubilant.Juju, s3_connection_info: S3ConnectionInfo
+):
+    """Test that kubeflow-integrator blocks when the S3 provider advertises incomplete fields."""
+    logger.info("Unsetting bucket and endpoint on s3-integrator to force partial data...")
+    juju.cli("config", S3_INTEGRATOR, "--reset", "bucket,endpoint")
+
+    logger.info("Waiting for kubeflow-integrator to block on missing S3 fields...")
+    juju.wait(
+        lambda status: (
+            jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR)
+            and status.apps[KUBEFLOW_INTEGRATOR].app_status.current == "blocked"
+        ),
+        delay=5,
+    )
+    message = juju.status().apps[KUBEFLOW_INTEGRATOR].app_status.message
+    assert "Missing KFP field(s)" in message
+    assert "'bucket'" in message
+    assert "'endpoint'" in message
+
+    logger.info("Restoring valid bucket and endpoint on s3-integrator...")
+    juju.config(
+        S3_INTEGRATOR,
+        {"bucket": MINIO_BUCKET, "endpoint": s3_connection_info.endpoint},
+    )
+    juju.wait(
+        lambda status: (
+            jubilant.all_active(status, KUBEFLOW_INTEGRATOR)
+            and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR)
+        ),
+        delay=5,
+    )
+
+
 def test_remove_s3_integration(
     juju: jubilant.Juju,
     lightkube_client: lightkube.Client,
