@@ -112,7 +112,7 @@ def juju(request: pytest.FixtureRequest, k8s_controller: str):
             print(log, end="")
 
     if model_name:
-        juju_instance = jubilant.Juju(model=model_name)
+        juju_instance = jubilant.Juju(model=f"{k8s_controller}:{model_name}")
         juju_instance.wait_timeout = WAIT_TIMEOUT
         try:
             yield juju_instance
