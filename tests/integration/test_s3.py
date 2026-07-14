@@ -260,7 +260,7 @@ def test_s3_charm_blocks_on_missing_fields(
         delay=5,
     )
     message = juju.status().apps[KUBEFLOW_INTEGRATOR].app_status.message
-    assert "Missing KFP field(s)" in message
+    assert "Missing KFP S3 field(s)" in message
     assert "'bucket'" in message
     assert "'endpoint'" in message
 

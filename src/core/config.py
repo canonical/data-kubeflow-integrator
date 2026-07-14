@@ -184,8 +184,8 @@ class SparkConfig(BaseConfigModel):
         return data
 
 
-class KFPConfig(BaseConfigModel):
-    """Model for the KFP / object storage configuration."""
+class KFPS3StorageConfig(BaseConfigModel):
+    """Model for the KFP S3 storage / object storage configuration."""
 
     default_pipeline_root: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
         None, alias="kfp-pipeline-root"

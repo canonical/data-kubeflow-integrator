@@ -12,7 +12,7 @@ from data_platform_helpers.advanced_statuses.handler import StatusHandler
 from core.state import GlobalState
 from events.general import GeneralEventsHandler
 from events.kafka import KafkaEventsHandler
-from events.kfp import KFPEventsHandler
+from events.kfp_s3_storage import KFPS3StorageEventsHandler
 from events.manifest import ManifestEventsHandler
 from events.mongodb import MongoDBEventsHandler
 from events.mysql import MySQLEventsHandler
@@ -20,7 +20,7 @@ from events.opensearch import OpenSearchEventsHandler
 from events.postgresql import PostgresqlEventsHandler
 from events.spark import SparkEventsHandler
 from managers.kafka import KafkaManager
-from managers.kfp import KFPManager
+from managers.kfp_s3_storage import KFPS3StorageManager
 from managers.mongodb import MongodbManager
 from managers.mysql import MysqlManager
 from managers.opensearch import OpenSearchManager
@@ -47,7 +47,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
         self.postgresql_manager = PostgresqlManager(self.state)
         self.mongodb_manager = MongodbManager(self.state)
         self.spark_manager = SparkManager(self.state)
-        self.kfp_manager = KFPManager(self.state)
+        self.kfp_s3_manager = KFPS3StorageManager(self.state)
         self.profile_manager = KubeflowProfileManager(self.state)
 
         self.status = StatusHandler(  # priority order
@@ -59,7 +59,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
             self.postgresql_manager,
             self.mongodb_manager,
             self.spark_manager,
-            self.kfp_manager,
+            self.kfp_s3_manager,
         )
 
         # Event Handlers
@@ -70,7 +70,7 @@ class KubeflowIntegratorCharm(ops.CharmBase):
         self.opensearch_events = OpenSearchEventsHandler(self, self.state)
         self.postgresql_events = PostgresqlEventsHandler(self, self.state)
         self.spark_events = SparkEventsHandler(self, self.state)
-        self.kfp_events = KFPEventsHandler(self, self.state)
+        self.kfp_s3_events = KFPS3StorageEventsHandler(self, self.state)
         self.manifest_events = ManifestEventsHandler(self, self.state)
 
 

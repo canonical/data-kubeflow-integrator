@@ -10,7 +10,7 @@ MYSQL = "mysql"
 OPENSEARCH = "opensearch"
 KAFKA = "kafka"
 SPARK = "spark"
-KFP = "kfp"
+KFP_S3_STORAGE = "kfp-s3-storage"
 
 
 OPENSEARCH_RELATION_NAME = "opensearch"
@@ -19,7 +19,7 @@ MYSQL_RELATION_NAME = "mysql"
 MONGODB_RELATION_NAME = "mongodb"
 KAFKA_RELATION_NAME = "kafka"
 SPARK_RELATION_NAME = "spark"
-KFP_RELATION_NAME = "kfp-s3-storage"
+KFP_S3_STORAGE_RELATION_NAME = "kfp-s3-storage"
 
 STATUS_PEERS_RELATION_NAME = "status-peers"
 SECRETS_DISPATCHER_RELATION_NAME = "secrets"

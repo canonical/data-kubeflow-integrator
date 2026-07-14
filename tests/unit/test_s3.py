@@ -265,7 +265,7 @@ def test_no_s3_manifests_when_credentials_incomplete(charm_configuration: dict, 
     state_out = ctx.run(ctx.on.relation_changed(config_maps_relation), state_in)
 
     assert isinstance(status := state_out.app_status, BlockedStatus)
-    assert "Missing KFP field(s): 'secret-key', 'endpoint'" in status.message
+    assert "Missing KFP S3 field(s): 'secret-key', 'endpoint'" in status.message
     config_map_manifests = _get_manifests(state_out, config_maps_relation)
     assert config_map_manifests == []
 
@@ -302,7 +302,7 @@ def test_no_s3_manifests_when_bucket_and_endpoint_missing(
     state_out = ctx.run(ctx.on.relation_changed(s3_relation), state_in)
 
     assert isinstance(status := state_out.app_status, BlockedStatus)
-    assert "Missing KFP field(s): 'bucket', 'endpoint'" in status.message
+    assert "Missing KFP S3 field(s): 'bucket', 'endpoint'" in status.message
     assert _get_manifests(state_out, config_maps_relation) == []
 
 

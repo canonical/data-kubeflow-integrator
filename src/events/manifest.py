@@ -91,7 +91,7 @@ class ManifestEventsHandler(Object, WithLogging):
             mongodb_manifests = self.charm.mongodb_manager.generate_manifests()
             kafka_manifests = self.charm.kafka_manager.generate_manifests()
             spark_manifests = self.charm.spark_manager.generate_manifests()
-            kfp_manifests = self.charm.kfp_manager.generate_manifests()
+            kfp_s3_manifests = self.charm.kfp_s3_manager.generate_manifests()
             reconciled_manifests = (
                 reconciled_manifests
                 + opensearch_manifests
@@ -100,7 +100,7 @@ class ManifestEventsHandler(Object, WithLogging):
                 + mongodb_manifests
                 + kafka_manifests
                 + spark_manifests
-                + kfp_manifests
+                + kfp_s3_manifests
             )
 
         # TODO: Reconcile other Data Platform databases

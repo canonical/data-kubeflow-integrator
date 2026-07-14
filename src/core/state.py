@@ -26,7 +26,7 @@ from ops import Object
 from constants import (
     CONFIGMAPS_DISPATCHER_RELATION_NAME,
     KAFKA_RELATION_NAME,
-    KFP_RELATION_NAME,
+    KFP_S3_STORAGE_RELATION_NAME,
     MONGODB_RELATION_NAME,
     MYSQL_RELATION_NAME,
     OPENSEARCH_RELATION_NAME,
@@ -42,7 +42,7 @@ from constants import (
 )
 from core.config import (
     KafkaConfig,
-    KFPConfig,
+    KFPS3StorageConfig,
     MongoDbConfig,
     MysqlConfig,
     OpenSearchConfig,
@@ -110,7 +110,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             service_account=f"{namespace}:{username}",
             skip_creation=True,
         )
-        self.kfp_requirer = S3Requirer(self.charm, relation_name=KFP_RELATION_NAME)
+        self.kfp_s3_requirer = S3Requirer(self.charm, relation_name=KFP_S3_STORAGE_RELATION_NAME)
 
         self.statuses = StatusesState(self, STATUS_PEERS_RELATION_NAME)
 
@@ -163,10 +163,10 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             return None
 
     @property
-    def kfp_config(self) -> KFPConfig | None:
-        """Return current configuration related to KFP / object storage."""
+    def kfp_s3_config(self) -> KFPS3StorageConfig | None:
+        """Return current configuration related to KFP S3 storage / object storage."""
         try:
-            return KFPConfig(**self.config)
+            return KFPS3StorageConfig(**self.config)
         except Exception:
             return None
 
@@ -247,24 +247,24 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         return namespace
 
     @property
-    def kfp_connection_info(self) -> dict[str, str]:
+    def kfp_s3_connection_info(self) -> dict[str, str]:
         """Return the S3 credentials advertised over the kfp-s3-storage relation."""
-        return cast("dict[str, str]", self.kfp_requirer.get_storage_connection_info())
+        return cast("dict[str, str]", self.kfp_s3_requirer.get_storage_connection_info())
 
     @property
     def active_s3_bucket(self) -> str | None:
         """Return the bucket advertised by the S3 provider."""
-        return self.kfp_connection_info.get("bucket")
+        return self.kfp_s3_connection_info.get("bucket")
 
     @property
     def active_s3_endpoint(self) -> str | None:
         """Return the endpoint advertised by the S3 provider."""
-        return self.kfp_connection_info.get("endpoint")
+        return self.kfp_s3_connection_info.get("endpoint")
 
     @property
     def active_s3_region(self) -> str | None:
         """Return the region advertised by the S3 provider."""
-        return self.kfp_connection_info.get("region")
+        return self.kfp_s3_connection_info.get("region")
 
     def is_opensearch_related(self) -> bool:
         """Check if we have a relation with OpenSearch."""
@@ -292,9 +292,9 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             self.spark_requirer, ["service-account", "resource-manifest", "spark-properties"]
         )
 
-    def is_kfp_related(self) -> bool:
+    def is_kfp_s3_related(self) -> bool:
         """Check if we have a relation with an S3 provider advertising credentials."""
-        connection_info = self.kfp_connection_info
+        connection_info = self.kfp_s3_connection_info
         return all(connection_info.get(key) for key in ("access-key", "secret-key"))
 
     def is_k8s_secrets_manifests_related(self) -> bool:
