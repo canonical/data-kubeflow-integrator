@@ -34,7 +34,7 @@ ADMISSION_WEBHOOK = "admission-webhook"
 ADMISSION_WEBHOOK_CHANNEL = "latest/edge"
 
 S3_INTEGRATOR = "s3-integrator"
-S3_INTEGRATOR_CHANNEL = "2/edge"
+S3_INTEGRATOR_CHANNEL = "2/stable"
 S3_CREDENTIALS_SECRET = "s3-integrator-credentials"
 
 S3_CREDENTIALS_RELATION_NAME = "kfp-s3-storage"
