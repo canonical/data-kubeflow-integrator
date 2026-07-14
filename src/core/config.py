@@ -184,9 +184,21 @@ class SparkConfig(BaseConfigModel):
         return data
 
 
+def validate_pipeline_root_scheme(value: str | None) -> str | None:
+    """Reject pipeline-root values that use the s3:// scheme. See `config.yaml`."""
+    if value and value.startswith("s3://"):
+        raise ValueError(
+            "The 'kfp-pipeline-root' value must not use an 's3://' scheme. "
+            "See https://github.com/kubeflow/pipelines/issues/13717 for details."
+        )
+    return value
+
+
 class KFPS3StorageConfig(BaseConfigModel):
     """Model for the KFP S3 storage / object storage configuration."""
 
-    default_pipeline_root: Annotated[str | None, BeforeValidator(nullify_empty_string)] = Field(
-        None, alias="kfp-pipeline-root"
-    )
+    default_pipeline_root: Annotated[
+        str | None,
+        BeforeValidator(nullify_empty_string),
+        AfterValidator(validate_pipeline_root_scheme),
+    ] = Field(None, alias="kfp-pipeline-root")

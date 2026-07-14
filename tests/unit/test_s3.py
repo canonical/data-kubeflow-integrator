@@ -337,6 +337,25 @@ def test_s3_secret_generated_without_config_maps_relation(
     assert secret_manifests[0]["metadata"]["name"] == "mlpipeline-minio-artifact"
 
 
+def test_s3_pipeline_root_with_s3_scheme_blocks_charm(
+    charm_configuration: dict, base_state: State
+):
+    """Check that setting 'kfp-pipeline-root' to an s3:// scheme blocks the charm."""
+    charm_configuration["options"]["profile"]["default"] = "profile-name"
+    charm_configuration["options"]["kfp-pipeline-root"]["default"] = "s3://mlpipeline/v2/artifacts"
+    ctx = testing.Context(
+        KubeflowIntegratorCharm,
+        meta=METADATA,
+        config=charm_configuration,
+        actions=ACTIONS,
+        unit_id=0,
+    )
+
+    state_out = ctx.run(ctx.on.start(), base_state)
+    assert isinstance(status := state_out.app_status, BlockedStatus)
+    assert "kfp-pipeline-root" in status.message
+
+
 def test_s3_manifests_cleared_when_credentials_gone(charm_configuration: dict, base_state: State):
     """Check that the artifact-store manifests are cleared when the S3 relation is broken."""
     charm_configuration["options"]["profile"]["default"] = "profile-name"

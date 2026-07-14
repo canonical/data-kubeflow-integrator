@@ -7,10 +7,12 @@
 from data_platform_helpers.advanced_statuses.models import StatusObject
 from data_platform_helpers.advanced_statuses.protocol import ManagerStatusProtocol
 from data_platform_helpers.advanced_statuses.types import Scope
+from pydantic import ValidationError
 
 from constants import DEFAULT_PIPELINE_ROOT_TEMPLATE, KFP_S3_STORAGE, S3_REQUIRED_FIELDS
+from core.config import KFPS3StorageConfig
 from core.state import GlobalState
-from core.statuses import CharmStatuses
+from core.statuses import CharmStatuses, ConfigStatuses
 from managers.manifests import KubernetesManifestsManager
 from utils.helpers_manifests import (
     generate_artifact_repositories_configmap_manifest,
@@ -39,9 +41,20 @@ class KFPS3StorageManager(ManagerStatusProtocol, WithLogging):
 
         KFP S3 storage integration is optional and purely relation-driven. Once an S3 provider
         has advertised some credentials, the charm blocks if any of the mandatory fields
-        (access-key, secret-key, bucket, endpoint) are still missing.
+        (access-key, secret-key, bucket, endpoint) are still missing, or if the
+        ``kfp-pipeline-root`` config option uses an unsupported scheme (e.g. ``s3://``).
         """
         status_list: list[StatusObject] = []
+
+        try:
+            KFPS3StorageConfig(**self.state.charm.config)
+        except ValidationError as err:
+            self.logger.warning(str(err))
+            invalid = [
+                str(error["loc"][0]) for error in err.errors() if error["type"] != "missing"
+            ]
+            if invalid:
+                status_list.append(ConfigStatuses.invalid_config_parameters(fields=invalid))
 
         connection_info = self.state.kfp_s3_connection_info
         if connection_info:
