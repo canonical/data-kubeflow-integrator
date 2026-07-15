@@ -49,8 +49,10 @@ def test_deploy_and_config_kubeflow_integrator(juju: jubilant.Juju, kubeflow_int
 
     # Assert:
     status = juju.wait(
-        lambda status: jubilant.any_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
-        and jubilant.all_agents_idle(status),
+        lambda status: (
+            jubilant.any_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+            and jubilant.all_agents_idle(status)
+        ),
         delay=5,
     )
 
@@ -108,8 +110,10 @@ def test_integrate_with_opensearch(juju: jubilant.Juju, juju_vm: jubilant.Juju):
 
     logger.info("Waiting for kubeflow-integrator to be active")
     juju.wait(
-        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
-        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME),
+        lambda status: (
+            jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+            and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        ),
         delay=5,
         timeout=600,
     )
@@ -161,8 +165,10 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
     )
     logger.info("Waiting for kubeflow-integrator to be blocked since relation is required")
     juju.wait(
-        lambda status: jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
-        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        lambda status: (
+            jubilant.all_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+            and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        )
     )
 
     logger.info("Resetting 'opensearch-index-name' config option")
@@ -172,8 +178,10 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
     logger.info("Waiting for kubeflow-integrator to be active")
     # Wat for kubeflow-integrator to be active
     juju.wait(
-        lambda status: jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
-        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        lambda status: (
+            jubilant.all_active(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+            and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        )
     )
 
     logger.info("Integrate opensearch with kubeflow-integrator")
@@ -185,8 +193,10 @@ def test_integrate_with_opensearch_without_config(juju: jubilant.Juju):
     # Wait for kubeflow-integrator to be blocked
     logger.info("Waiting for kubeflow-integrator to be blocked since a config option is missing")
     status = juju.wait(
-        lambda status: jubilant.any_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
-        and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME),
+        lambda status: (
+            jubilant.any_blocked(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+            and jubilant.all_agents_idle(status, KUBEFLOW_INTEGRATOR_APP_NAME)
+        ),
         delay=5,
     )
 

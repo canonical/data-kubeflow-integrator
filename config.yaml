@@ -54,4 +54,15 @@ options:
     type: string
     default:
     description: The service account name to use with Spark jobs.
+  kfp-pipeline-root:
+    type: string
+    default:
+    description: |
+      Optional override for the `defaultPipelineRoot` of the generated `kfp-launcher` config-map.
+      When left empty, it defaults to `minio://<bucket>/v2/artifacts` using the bucket advertised
+      over the `kfp-s3-storage` relation.
 
+      Note: The scheme should be `minio://`, not `s3://`. Due to a known upstream KFP bug,
+      the `s3` scheme produced an error when downloading from artifact URIs. The functionality
+      with the `minio://` scheme is the exact same. The charm will block if an
+      `s3://` scheme is supplied here.

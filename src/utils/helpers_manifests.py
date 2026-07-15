@@ -5,11 +5,16 @@
 """Helper methods for kubernetes manifests generation."""
 
 import base64
+from urllib.parse import urlparse
 
 from charms.resource_dispatcher.v0.kubernetes_manifests import KubernetesManifest
 from jinja2 import Template
 
 from constants import (
+    ARTIFACT_KEY_FORMAT,
+    ARTIFACT_REPOSITORIES_CONFIGMAP_NAME,
+    ARTIFACT_REPOSITORY_ANNOTATION,
+    ARTIFACT_REPOSITORY_REF,
     K8S_DATABASE_PODDEFAULT_DESC,
     K8S_DATABASE_PODDEFAULT_NAME,
     K8S_DATABASE_PODDEFAULT_SELECTOR_LABEL,
@@ -17,6 +22,10 @@ from constants import (
     K8S_DATABASE_TLS_SECRET_NAME,
     K8S_TLS_MOUNTPATH,
     K8S_TLS_SECRET_VOLUME,
+    KFP_LAUNCHER_CONFIGMAP_NAME,
+    MINIO_SECRET_ACCESS_KEY,
+    MINIO_SECRET_SECRET_KEY,
+    MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
 )
 from utils.k8s_models import (
     EnvVarFromField,
@@ -141,4 +150,81 @@ def generate_poddefault_manifest(
     )
 
     rendered = template.render(pod_default=k8s_poddefault_info)
+    return KubernetesManifest(rendered)
+
+
+def _parse_s3_endpoint(endpoint: str) -> tuple[str, bool]:
+    """Parse an S3 endpoint into a ``(host[:port], secure)`` tuple.
+
+    The endpoint may be a full URL (e.g. ``https://s3.example.com:443``) or a bare
+    ``host[:port]``. When a URL scheme is present it determines TLS; otherwise TLS is
+    inferred from the port (``443`` -> secure). The returned host preserves the
+    ``host[:port]`` form as provided, with any scheme stripped.
+    """
+    parsed = urlparse(endpoint if "://" in endpoint else f"//{endpoint}")
+    if parsed.scheme:
+        secure = parsed.scheme == "https"
+    else:
+        secure = parsed.port == 443
+    return parsed.netloc, secure
+
+
+def generate_minio_artifact_secret_manifest(
+    template: Template, profile: str, access_key: str, secret_key: str
+) -> KubernetesManifest:
+    """Generate the ``mlpipeline-minio-artifact`` Secret manifest for a profile."""
+    secret_info = K8sSecretManifestInfo(
+        name=MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+        namespace=None if profile == "*" else profile,
+        data={
+            MINIO_SECRET_ACCESS_KEY: base64.b64encode(access_key.encode()).decode("utf-8"),
+            MINIO_SECRET_SECRET_KEY: base64.b64encode(secret_key.encode()).decode("utf-8"),
+        },
+        labels=None,
+    )
+    rendered = template.render(secret=secret_info)
+    return KubernetesManifest(rendered)
+
+
+def generate_artifact_repositories_configmap_manifest(
+    template: Template, profile: str, bucket: str, endpoint: str
+) -> KubernetesManifest:
+    """Generate the argo ``artifact-repositories`` ConfigMap manifest for a profile."""
+    host, secure = _parse_s3_endpoint(endpoint)
+    rendered = template.render(
+        name=ARTIFACT_REPOSITORIES_CONFIGMAP_NAME,
+        namespace=None if profile == "*" else profile,
+        annotation_key=ARTIFACT_REPOSITORY_ANNOTATION,
+        annotation_ref=ARTIFACT_REPOSITORY_REF,
+        secret_name=MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+        access_key=MINIO_SECRET_ACCESS_KEY,
+        secret_key=MINIO_SECRET_SECRET_KEY,
+        bucket=bucket,
+        endpoint=host,
+        insecure=not secure,
+        key_format=ARTIFACT_KEY_FORMAT,
+    )
+    return KubernetesManifest(rendered)
+
+
+def generate_kfp_launcher_configmap_manifest(
+    template: Template,
+    profile: str,
+    endpoint: str,
+    region: str | None,
+    default_pipeline_root: str,
+) -> KubernetesManifest:
+    """Generate the ``kfp-launcher`` ConfigMap manifest for a profile."""
+    host, secure = _parse_s3_endpoint(endpoint)
+    rendered = template.render(
+        name=KFP_LAUNCHER_CONFIGMAP_NAME,
+        namespace=None if profile == "*" else profile,
+        default_pipeline_root=default_pipeline_root,
+        endpoint=host,
+        disable_ssl=not secure,
+        region=region or "",
+        secret_name=MLPIPELINE_MINIO_ARTIFACT_SECRET_NAME,
+        access_key=MINIO_SECRET_ACCESS_KEY,
+        secret_key=MINIO_SECRET_SECRET_KEY,
+    )
     return KubernetesManifest(rendered)

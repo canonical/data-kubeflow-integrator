@@ -5,7 +5,7 @@
 
 """Object representing the state of KubeflowIntegrator Charm."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from charms.data_platform_libs.v0.data_interfaces import (
     DatabaseRequirerData,
@@ -20,10 +20,13 @@ from charms.spark_integration_hub_k8s.v0.spark_service_account import (
     SparkServiceAccountRequirerData,
 )
 from data_platform_helpers.advanced_statuses.protocol import StatusesState, StatusesStateProtocol
+from object_storage import S3Requirer
 from ops import Object
 
 from constants import (
+    CONFIGMAPS_DISPATCHER_RELATION_NAME,
     KAFKA_RELATION_NAME,
+    KFP_S3_STORAGE_RELATION_NAME,
     MONGODB_RELATION_NAME,
     MYSQL_RELATION_NAME,
     OPENSEARCH_RELATION_NAME,
@@ -39,6 +42,7 @@ from constants import (
 )
 from core.config import (
     KafkaConfig,
+    KFPS3StorageConfig,
     MongoDbConfig,
     MysqlConfig,
     OpenSearchConfig,
@@ -106,6 +110,7 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             service_account=f"{namespace}:{username}",
             skip_creation=True,
         )
+        self.kfp_s3_requirer = S3Requirer(self.charm, relation_name=KFP_S3_STORAGE_RELATION_NAME)
 
         self.statuses = StatusesState(self, STATUS_PEERS_RELATION_NAME)
 
@@ -154,6 +159,14 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         """Return current configuration related to Spark."""
         try:
             return SparkConfig(**self.config)
+        except Exception:
+            return None
+
+    @property
+    def kfp_s3_config(self) -> KFPS3StorageConfig | None:
+        """Return current configuration related to KFP S3 storage / object storage."""
+        try:
+            return KFPS3StorageConfig(**self.config)
         except Exception:
             return None
 
@@ -233,6 +246,26 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         namespace, _ = parts
         return namespace
 
+    @property
+    def kfp_s3_connection_info(self) -> dict[str, str]:
+        """Return the S3 credentials advertised over the kfp-s3-storage relation."""
+        return cast("dict[str, str]", self.kfp_s3_requirer.get_storage_connection_info())
+
+    @property
+    def active_s3_bucket(self) -> str | None:
+        """Return the bucket advertised by the S3 provider."""
+        return self.kfp_s3_connection_info.get("bucket")
+
+    @property
+    def active_s3_endpoint(self) -> str | None:
+        """Return the endpoint advertised by the S3 provider."""
+        return self.kfp_s3_connection_info.get("endpoint")
+
+    @property
+    def active_s3_region(self) -> str | None:
+        """Return the region advertised by the S3 provider."""
+        return self.kfp_s3_connection_info.get("region")
+
     def is_opensearch_related(self) -> bool:
         """Check if we have a relation with OpenSearch."""
         return self.is_relation_ready(self.opensearch_requirer)
@@ -259,6 +292,11 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
             self.spark_requirer, ["service-account", "resource-manifest", "spark-properties"]
         )
 
+    def is_kfp_s3_related(self) -> bool:
+        """Check if we have a relation with an S3 provider advertising credentials."""
+        connection_info = self.kfp_s3_connection_info
+        return all(connection_info.get(key) for key in ("access-key", "secret-key"))
+
     def is_k8s_secrets_manifests_related(self) -> bool:
         """Is the charm related to a secrets manifests relation."""
         return bool(self.charm.model.relations.get(SECRETS_DISPATCHER_RELATION_NAME))
@@ -279,6 +317,10 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
         """Is the charm related to a rolebindings manifests relation."""
         return bool(self.charm.model.relations.get(ROLEBINDINGS_DISPATCHER_RELATION_NAME))
 
+    def is_k8s_configmaps_manifests_related(self) -> bool:
+        """Is the charm related to a config-maps manifests relation."""
+        return bool(self.charm.model.relations.get(CONFIGMAPS_DISPATCHER_RELATION_NAME))
+
     def is_manifests_provider_related(self):
         """Is the charm related to any manifests relation provider."""
         return any(
@@ -288,5 +330,6 @@ class GlobalState(Object, WithLogging, StatusesStateProtocol):
                 self.is_k8s_service_accounts_manifests_related(),
                 self.is_k8s_roles_manifests_related(),
                 self.is_k8s_rolebindings_manifests_related(),
+                self.is_k8s_configmaps_manifests_related(),
             ]
         )

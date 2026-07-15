@@ -14,6 +14,7 @@ from charms.resource_dispatcher.v0.kubernetes_manifests import (
 from ops import Object
 
 from constants import (
+    CONFIGMAPS_DISPATCHER_RELATION_NAME,
     POD_DEFAULTS_DISPATCHER_RELATION_NAME,
     ROLEBINDINGS_DISPATCHER_RELATION_NAME,
     ROLES_DISPATCHER_RELATION_NAME,
@@ -53,6 +54,9 @@ class ManifestEventsHandler(Object, WithLogging):
         self.role_bindings_manifests_wrapper = KubernetesManifestRequirerWrapper(
             charm=self.charm, relation_name=ROLEBINDINGS_DISPATCHER_RELATION_NAME
         )
+        self.config_maps_manifests_wrapper = KubernetesManifestRequirerWrapper(
+            charm=self.charm, relation_name=CONFIGMAPS_DISPATCHER_RELATION_NAME
+        )
 
         # resource-dispatcher
         for relation_name in [
@@ -61,6 +65,7 @@ class ManifestEventsHandler(Object, WithLogging):
             POD_DEFAULTS_DISPATCHER_RELATION_NAME,
             ROLES_DISPATCHER_RELATION_NAME,
             ROLEBINDINGS_DISPATCHER_RELATION_NAME,
+            CONFIGMAPS_DISPATCHER_RELATION_NAME,
         ]:
             self.framework.observe(
                 self.charm.on[relation_name].relation_created,
@@ -86,6 +91,7 @@ class ManifestEventsHandler(Object, WithLogging):
             mongodb_manifests = self.charm.mongodb_manager.generate_manifests()
             kafka_manifests = self.charm.kafka_manager.generate_manifests()
             spark_manifests = self.charm.spark_manager.generate_manifests()
+            kfp_s3_manifests = self.charm.kfp_s3_manager.generate_manifests()
             reconciled_manifests = (
                 reconciled_manifests
                 + opensearch_manifests
@@ -94,6 +100,7 @@ class ManifestEventsHandler(Object, WithLogging):
                 + mongodb_manifests
                 + kafka_manifests
                 + spark_manifests
+                + kfp_s3_manifests
             )
 
         # TODO: Reconcile other Data Platform databases
@@ -107,3 +114,4 @@ class ManifestEventsHandler(Object, WithLogging):
         self.service_accounts_manifests_wrapper.send_data(reconciled_manifests.serviceaccounts)
         self.roles_manifests_wrapper.send_data(reconciled_manifests.roles)
         self.role_bindings_manifests_wrapper.send_data(reconciled_manifests.role_bindings)
+        self.config_maps_manifests_wrapper.send_data(reconciled_manifests.configmaps)

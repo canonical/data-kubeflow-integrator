@@ -24,6 +24,8 @@ KUBEFLOW_USER_PROFILE_A = "kubeflow-profile-a"
 KUBEFLOW_USER_PROFILE_B = "kubeflow-profile-b"
 RESOURCE_DISPATCHER = "resource-dispatcher"
 
+WAIT_TIMEOUT = 20 * 60
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -32,11 +34,32 @@ def pytest_addoption(parser):
         default=False,
         help="keep temporarily-created models",
     )
+    parser.addoption(
+        "--model",
+        action="store",
+        default=None,
+        help="Juju model to use; if not provided, a new model "
+        "will be created for each test which requires one",
+    )
+    parser.addoption(
+        "--charm-path",
+        action="store",
+        default=None,
+        help="Path to charm file for performing tests on.",
+    )
 
 
 @pytest.fixture
-def kubeflow_integrator() -> Path:
+def kubeflow_integrator(request: pytest.FixtureRequest) -> Path:
     """Path to the packed kf-integrator charm."""
+    if charm_path := request.config.getoption("--charm-path"):
+        # Resolve to an absolute path so `juju deploy` treats it unambiguously as a local
+        # charm
+        path = Path(charm_path).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"Charm file not found at --charm-path: {path}")
+        return path
+
     if not (path := next(iter(Path.cwd().glob(f"{APP_NAME}*.charm")), None)):
         raise FileNotFoundError("Could not find packed kubeflow-integrator charm.")
 
@@ -80,27 +103,55 @@ def k8s_controller() -> str | None:
 @pytest.fixture(scope="module")
 def juju(request: pytest.FixtureRequest, k8s_controller: str):
     keep_models = bool(request.config.getoption("--keep-models"))
-    with jubilant.temp_model(keep=keep_models, controller=k8s_controller) as juju:
-        juju.wait_timeout = 10 * 60
+    model_name = request.config.getoption("--model")
 
-        yield juju  # run the test
-
+    def print_debug_log(juju_instance: jubilant.Juju):
         if request.session.testsfailed:
-            log = juju.debug_log(limit=30)
+            print(f"[DEBUG] Fetching debug log for model: {juju_instance.model}")
+            log = juju_instance.debug_log(limit=1000)
             print(log, end="")
+
+    if model_name:
+        juju_instance = jubilant.Juju(model=f"{k8s_controller}:{model_name}")
+        juju_instance.wait_timeout = WAIT_TIMEOUT
+        try:
+            yield juju_instance
+        finally:
+            print_debug_log(juju_instance)
+    else:
+        with jubilant.temp_model(keep=keep_models, controller=k8s_controller) as juju_instance:
+            juju_instance.wait_timeout = WAIT_TIMEOUT
+            try:
+                yield juju_instance
+            finally:
+                print_debug_log(juju_instance)
 
 
 @pytest.fixture(scope="module")
 def juju_vm(request: pytest.FixtureRequest, vm_controller: str):
     keep_models = bool(request.config.getoption("--keep-models"))
-    with jubilant.temp_model(keep=keep_models, controller=vm_controller) as juju:
-        juju.wait_timeout = 10 * 60
+    model_name = request.config.getoption("--model")
 
-        yield juju  # run the test
-
+    def print_debug_log(juju_instance: jubilant.Juju):
         if request.session.testsfailed:
-            log = juju.debug_log(limit=30)
+            print(f"[DEBUG] Fetching debug log for model: {juju_instance.model}")
+            log = juju_instance.debug_log(limit=1000)
             print(log, end="")
+
+    if model_name:
+        juju_instance = jubilant.Juju(model=f"{vm_controller}:{model_name}")
+        juju_instance.wait_timeout = WAIT_TIMEOUT
+        try:
+            yield juju_instance
+        finally:
+            print_debug_log(juju_instance)
+    else:
+        with jubilant.temp_model(keep=keep_models, controller=vm_controller) as juju_instance:
+            juju_instance.wait_timeout = WAIT_TIMEOUT
+            try:
+                yield juju_instance
+            finally:
+                print_debug_log(juju_instance)
 
 
 @pytest.fixture(scope="session")
