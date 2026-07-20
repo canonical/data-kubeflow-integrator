@@ -15,7 +15,7 @@ jobs:
     secrets: inherit
     permissions:
       actions: read
-      contents: read
+      contents: write  # Needed for the Allure report
 
   release:
     strategy:
@@ -34,4 +34,3 @@ jobs:
     permissions:
       actions: read
       contents: write  # Needed to create git tags
-  
