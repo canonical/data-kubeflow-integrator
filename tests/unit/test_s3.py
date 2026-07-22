@@ -133,10 +133,10 @@ def test_s3_manifests_generated_when_related(charm_configuration: dict, base_sta
     # Falls back to the templated default pipeline root when the config is unset.
     assert kfp_launcher["data"]["defaultPipelineRoot"] == "minio://mlpipeline/v2/artifacts"
     providers = yaml.safe_load(kfp_launcher["data"]["providers"])
-    assert providers["s3"]["default"]["endpoint"] == "minio.kubeflow:9000"
-    assert providers["s3"]["default"]["disableSSL"] is True
-    assert providers["s3"]["default"]["region"] == "us-east-1"
-    assert providers["s3"]["default"]["credentials"]["secretRef"]["secretName"] == (
+    assert providers["minio"]["default"]["endpoint"] == "minio.kubeflow:9000"
+    assert providers["minio"]["default"]["disableSSL"] is True
+    assert providers["minio"]["default"]["region"] == "us-east-1"
+    assert providers["minio"]["default"]["credentials"]["secretRef"]["secretName"] == (
         "mlpipeline-minio-artifact"
     )
 
@@ -177,8 +177,8 @@ def test_s3_endpoint_without_scheme_infers_tls_from_port(
 
     kfp_launcher = config_maps["kfp-launcher"]
     providers = yaml.safe_load(kfp_launcher["data"]["providers"])
-    assert providers["s3"]["default"]["endpoint"] == "minio.kubeflow:443"
-    assert providers["s3"]["default"]["disableSSL"] is False
+    assert providers["minio"]["default"]["endpoint"] == "minio.kubeflow:443"
+    assert providers["minio"]["default"]["disableSSL"] is False
 
 
 def test_s3_default_pipeline_root_config_overrides_template(
