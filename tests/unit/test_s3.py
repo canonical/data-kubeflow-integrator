@@ -133,10 +133,12 @@ def test_s3_manifests_generated_when_related(charm_configuration: dict, base_sta
     # Falls back to the templated default pipeline root when the config is unset.
     assert kfp_launcher["data"]["defaultPipelineRoot"] == "minio://mlpipeline/v2/artifacts"
     providers = yaml.safe_load(kfp_launcher["data"]["providers"])
-    assert providers["s3"]["default"]["endpoint"] == "minio.kubeflow:9000"
-    assert providers["s3"]["default"]["disableSSL"] is True
-    assert providers["s3"]["default"]["region"] == "us-east-1"
-    assert providers["s3"]["default"]["credentials"]["secretRef"]["secretName"] == (
+    assert providers["minio"]["default"]["endpoint"] == "minio.kubeflow:9000"
+    assert providers["minio"]["default"]["disableSSL"] is True
+    # object-storage data may have no region concept, so the validator falls back to the
+    # default region set in the charm.
+    assert providers["minio"]["default"]["region"] == "us-east-1"
+    assert providers["minio"]["default"]["credentials"]["secretRef"]["secretName"] == (
         "mlpipeline-minio-artifact"
     )
 
@@ -177,8 +179,42 @@ def test_s3_endpoint_without_scheme_infers_tls_from_port(
 
     kfp_launcher = config_maps["kfp-launcher"]
     providers = yaml.safe_load(kfp_launcher["data"]["providers"])
-    assert providers["s3"]["default"]["endpoint"] == "minio.kubeflow:443"
-    assert providers["s3"]["default"]["disableSSL"] is False
+    assert providers["minio"]["default"]["endpoint"] == "minio.kubeflow:443"
+    assert providers["minio"]["default"]["disableSSL"] is False
+
+
+def test_s3_empty_region_falls_back_to_default(charm_configuration: dict, base_state: State):
+    """Check that an empty/absent S3 region falls back to the charm default in kfp-launcher.
+
+    The AWS S3 SDK used by the kfp-launcher requires a non-empty region, even when talking to a
+    local storage (e.g. microceph) that has no region concept. Without a fallback, pipelines fail
+    with "A region must be set when sending requests to S3".
+    """
+    charm_configuration["options"]["profile"]["default"] = "profile-name"
+    ctx = testing.Context(
+        KubeflowIntegratorCharm,
+        meta=METADATA,
+        config=charm_configuration,
+        actions=ACTIONS,
+        unit_id=0,
+    )
+
+    s3_credentials = {k: v for k, v in S3_CREDENTIALS.items() if k != "region"}
+    s3_relation = Relation(
+        endpoint="kfp-s3-storage", interface="s3", remote_app_data=s3_credentials
+    )
+    config_maps_relation = Relation(endpoint="config-maps", interface="kubernetes_manifest")
+    relations = [*base_state.relations, s3_relation, config_maps_relation]
+    state_in = dataclasses.replace(base_state, relations=relations)
+    state_out = ctx.run(ctx.on.relation_changed(s3_relation), state_in)
+
+    config_map_manifests = _get_manifests(state_out, config_maps_relation)
+    kfp_launcher = [cm for cm in config_map_manifests if cm["metadata"]["name"] == "kfp-launcher"][
+        0
+    ]
+    providers = yaml.safe_load(kfp_launcher["data"]["providers"])
+    # Even if the region is non-required, expect the default one.
+    assert providers["minio"]["default"]["region"] == "us-east-1"
 
 
 def test_s3_default_pipeline_root_config_overrides_template(

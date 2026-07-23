@@ -40,6 +40,12 @@ KFP_LAUNCHER_CONFIGMAP_NAME = "kfp-launcher"
 MINIO_SECRET_ACCESS_KEY = "accesskey"
 MINIO_SECRET_SECRET_KEY = "secretkey"
 
+# The AWS S3 SDK used by the kfp-launcher requires a non-empty region, even when talking to a
+# local storage that has no region concept. Use the same default as used in
+# `files/upstream/sync.py` of kfp-profile-controller, see:
+# https://github.com/canonical/kfp-operators/tree/dd3b8d1bfefa7322fba900ae7a6c797d1890d961/charms/kfp-profile-controller
+DEFAULT_REGION = "us-east-1"
+
 # argo `artifact-repositories` config-map annotation marking the default repository
 ARTIFACT_REPOSITORY_ANNOTATION = "workflows.argoproj.io/default-artifact-repository"
 ARTIFACT_REPOSITORY_REF = "default-namespaced"

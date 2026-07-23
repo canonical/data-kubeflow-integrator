@@ -238,10 +238,10 @@ def test_s3_resources_created_in_profile_namespace(
             assert kfp_launcher.data is not None
             assert "defaultPipelineRoot" in kfp_launcher.data
             providers = yaml.safe_load(kfp_launcher.data["providers"])
-            assert providers["s3"]["default"]["endpoint"] == _endpoint_host(
+            assert providers["minio"]["default"]["endpoint"] == _endpoint_host(
                 s3_connection_info.endpoint
             )
-            assert providers["s3"]["default"]["region"] == s3_connection_info.region
+            assert providers["minio"]["default"]["region"] == s3_connection_info.region
 
 
 def test_s3_charm_blocks_on_missing_fields(

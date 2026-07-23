@@ -9,7 +9,7 @@ import yaml
 from ops import ActiveStatus, BlockedStatus, testing
 from ops.testing import State
 
-from src.charm import KubeflowIntegratorCharm
+from charm import KubeflowIntegratorCharm
 
 CONFIG = yaml.safe_load(Path("./config.yaml").read_text())
 ACTIONS = yaml.safe_load(Path("./actions.yaml").read_text())

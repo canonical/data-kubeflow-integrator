@@ -8,7 +8,7 @@ metadata:
 data:
   defaultPipelineRoot: {{ default_pipeline_root | tojson }}
   providers: |
-    s3:
+    minio:
       default:
         endpoint: {{ endpoint | tojson }}
         disableSSL: {{ disable_ssl | tojson }}
